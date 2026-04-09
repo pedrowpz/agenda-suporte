@@ -20,16 +20,15 @@ DB_CONFIG = {
 HORARIOS_PADRAO = ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00']
 
 MODULOS_PADRAO = [
-    ('Fiscal / NF-e',               'Emissão, transmissão e correção de notas fiscais'),
-    ('Financeiro',                   'Contas a pagar, receber e fluxo de caixa'),
-    ('Estoque / WMS',               'Controle de estoque e movimentações'),
-    ('Compras',                      'Pedidos de compra e fornecedores'),
-    ('Vendas / Pedidos',            'Pedidos de venda e faturamento'),
-    ('RH / Folha de Pagamento',     'Folha de pagamento e gestão de pessoas'),
-    ('Contabilidade',               'Lançamentos e fechamento contábil'),
-    ('Relatórios / BI',             'Dashboards e relatórios gerenciais'),
-    ('Configurações',               'Parametrização e configurações do sistema'),
-    ('Integração / API',            'Integrações com sistemas externos'),
+    ('Módulo Serviços',         'Configuração e operação do módulo de serviços'),
+    ('Módulo Simples Nacional', 'Apuração e obrigações do Simples Nacional'),
+    ('Módulo Prevenção',        'Prevenção e análise de riscos fiscais'),
+    ('Módulo Federal',          'Obrigações e apurações federais'),
+    ('Módulo Geral',            'Configurações e funcionalidades gerais'),
+    ('Módulo Serviços Tomados', 'Escrituração de serviços tomados'),
+    ('Automações do ICMS',      'Configuração e automações de ICMS'),
+    ('Integrações',             'Integrações com sistemas externos e APIs'),
+    ('Módulo Área do Cliente',  'Portal e funcionalidades da área do cliente'),
 ]
 
 
