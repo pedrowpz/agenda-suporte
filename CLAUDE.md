@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repositório
 
-**GitHub:** https://github.com/pedrowpz/jettax-suporte  
+**GitHub:** https://github.com/pedrowpz/agenda-suporte  
 **Regra:** toda alteração no código deve ser commitada e enviada ao GitHub ao final da tarefa.
 
 ```bash
