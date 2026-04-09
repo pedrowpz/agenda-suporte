@@ -2,32 +2,66 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Running the application
+## Repositório
+
+**GitHub:** https://github.com/pedrowpz/jettax-suporte  
+**Regra:** toda alteração no código deve ser commitada e enviada ao GitHub ao final da tarefa.
 
 ```bash
-python agenda.py
+git add .
+git commit -m "descrição da alteração"
+git push
 ```
 
-No external dependencies — standard library only. No virtual environment needed.
+## Rodar o sistema
 
-## Architecture
+```bash
+cd suporte_web
+./start.sh          # desenvolvimento (Flask debug)
+./start.sh prod     # produção (Gunicorn)
+```
 
-Single-file application (`agenda.py`) with a procedural structure. All logic lives in one file:
+Dependências ficam em `suporte_web/.venv/`. Instalar com:
+```bash
+cd suporte_web && .venv/bin/pip install -r requirements.txt
+```
 
-- `main()` → calls `menu()`
-- `menu()` → interactive loop; routes user input (1–6) to CRUD functions
-- CRUD functions: `cadastrarContato`, `listarContato`, `buscarContatoPeloNome`, `atualizarContato`, `deletarContato`, `sair`
+## Arquitetura
 
-**Data storage:** `agenda.txt` — plain text, semicolon-delimited rows with format `ID;Name;Phone;Email\n`. All reads/writes go directly to this file; there is no in-memory data structure.
+```
+suporte_web/
+├── app.py          ← rotas Flask (cliente / funcionário / admin)
+├── database.py     ← PostgreSQL via psycopg2 (todas as queries)
+├── mailer.py       ← envio de e-mail SMTP (smtplib)
+├── gunicorn.conf.py
+├── jettax-suporte.service  ← systemd para produção
+├── start.sh
+├── static/css/style.css    ← design system Jettax
+└── templates/
+    ├── cliente.html         ← wizard 4 passos (público)
+    ├── confirmacao.html     ← pós-agendamento
+    ├── funcionario.html     ← portal do consultor (login + dashboard)
+    └── admin.html           ← painel admin (login + dashboard + configurações)
+```
 
-**Update flow:** `atualizarContato` deletes the old entry (rewrites the file excluding the matched line) then calls `cadastrarContato` to append the new values.
+**Banco:** PostgreSQL `agendaSuporte` — tabelas `agendamentos`, `funcionarios`, `modulos`, `login_tentativas`.  
+Conexão configurada via variáveis de ambiente em `suporte_web/.env` (ver `.env.example`).
 
-## Known bugs
+**Fluxo de autenticação:** bcrypt para senhas, migração automática de hashes SHA256 legados no login. Rate limiting: 5 tentativas / 15 min por IP na tabela `login_tentativas`. CSRF via Flask-WTF com auto-inject JS em todos os formulários.
 
-- `buscarContatoPeloNome` (line ~85): `break` inside the loop exits after the first line, so only the first contact is ever checked.
-- `deletarContato`/`atualizarContato`: comparison uses `.upper` (missing `()`) — call it as `.upper()`.
-- File opened with bare `open()` in several places instead of `with` statements; an exception mid-write can leave `agenda.txt` in a corrupt state.
+**E-mails disparados assincronamente (thread):** agendamento criado → cliente; status alterado → cliente; novo agendamento → equipe interna (`NOTIFY_MAIL`).
 
-## Language note
+## Cores Jettax
 
-Code, variable names, and comments are in Portuguese (`cadastrar` = register, `listar` = list, `deletar` = delete, `buscar` = search, `atualizar` = update, `sair` = exit). Keep this convention when editing.
+```css
+--primary: #002670   /* navy */
+--accent:  #00AFFA   /* cyan */
+--accent-2: #0BE3CC  /* teal */
+```
+Fontes: `Exo` (títulos) e `Nunito` (corpo) via Google Fonts.
+
+## Credenciais demo
+
+- Admin: `admin@jettax.com.br` / `jettax2024`  
+- Consultor: `consultor@jettax.com.br` / `jettax2024`  
+- Banco: usuário `jettax` / senha `jettax2024`
