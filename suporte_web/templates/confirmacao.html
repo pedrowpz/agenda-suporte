@@ -114,6 +114,24 @@
           <div class="detail-val">{{ ag.cliente_nome }} — {{ ag.cliente_empresa }}</div>
         </div>
       </div>
+      {% if ag.cliente_cnpj %}
+      <div class="detail-item">
+        <div class="detail-icon">🏢</div>
+        <div class="detail-info">
+          <div class="detail-lbl">CNPJ</div>
+          <div class="detail-val">{{ ag.cliente_cnpj }}</div>
+        </div>
+      </div>
+      {% endif %}
+      {% if ag.cliente_perfil %}
+      <div class="detail-item">
+        <div class="detail-icon">🔑</div>
+        <div class="detail-info">
+          <div class="detail-lbl">Perfil Jettax</div>
+          <div class="detail-val">{{ ag.cliente_perfil }}</div>
+        </div>
+      </div>
+      {% endif %}
       <div class="detail-item">
         <div class="detail-icon">✉️</div>
         <div class="detail-info">

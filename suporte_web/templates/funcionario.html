@@ -386,6 +386,8 @@
             <div class="ag-module">🎯 {{ ag.modulo }}</div>
             <div class="ag-info">
               <div class="ag-info-row">👤 <strong>{{ ag.cliente_nome }}</strong> — {{ ag.cliente_empresa }}</div>
+              {% if ag.cliente_cnpj %}<div class="ag-info-row">🏢 CNPJ: {{ ag.cliente_cnpj }}</div>{% endif %}
+              {% if ag.cliente_perfil %}<div class="ag-info-row">🔑 Perfil Jettax: <strong>{{ ag.cliente_perfil }}</strong></div>{% endif %}
               <div class="ag-info-row">✉️ {{ ag.cliente_email }}</div>
               {% if ag.cliente_telefone %}<div class="ag-info-row">📱 {{ ag.cliente_telefone }}</div>{% endif %}
               <div class="ag-info-row">📅 <strong>{{ ag.data }}</strong> às <strong>{{ ag.horario }}</strong></div>

@@ -402,10 +402,18 @@
               <input type="text" name="empresa" id="f_empresa" class="form-control" placeholder="Nome da empresa" required>
             </div>
             <div class="form-group">
+              <label class="form-label">CNPJ *</label>
+              <input type="text" name="cnpj" id="f_cnpj" class="form-control" placeholder="00.000.000/0000-00" required maxlength="18">
+            </div>
+            <div class="form-group" style="grid-column:1/-1">
+              <label class="form-label">Nome do perfil na Jettax *</label>
+              <input type="text" name="perfil_jettax" id="f_perfil" class="form-control" placeholder="Nome usado para acessar o sistema Jettax" required>
+            </div>
+            <div class="form-group">
               <label class="form-label">Telefone</label>
               <input type="tel" name="telefone" id="f_telefone" class="form-control" placeholder="(00) 00000-0000">
             </div>
-            <div class="form-group" style="grid-column:1/-1">
+            <div class="form-group">
               <label class="form-label">E-mail *</label>
               <input type="email" name="email" id="f_email" class="form-control" placeholder="seu@email.com" required>
             </div>
@@ -498,6 +506,8 @@
           <div class="review-box" id="reviewBox">
             <div class="review-row"><span class="review-label">Nome</span><span class="review-value" id="rv_nome">—</span></div>
             <div class="review-row"><span class="review-label">Empresa</span><span class="review-value" id="rv_empresa">—</span></div>
+            <div class="review-row"><span class="review-label">CNPJ</span><span class="review-value" id="rv_cnpj">—</span></div>
+            <div class="review-row"><span class="review-label">Perfil Jettax</span><span class="review-value" id="rv_perfil">—</span></div>
             <div class="review-row"><span class="review-label">E-mail</span><span class="review-value" id="rv_email">—</span></div>
             <div class="review-row"><span class="review-label">Módulo</span><span class="review-value" id="rv_modulo">—</span></div>
             <div class="review-row"><span class="review-label">Data</span><span class="review-value" id="rv_data">—</span></div>
@@ -619,12 +629,24 @@ function loadHorarios(data) {
 function updateReview() {
   document.getElementById('rv_nome').textContent    = document.getElementById('f_nome').value;
   document.getElementById('rv_empresa').textContent = document.getElementById('f_empresa').value;
+  document.getElementById('rv_cnpj').textContent    = document.getElementById('f_cnpj').value;
+  document.getElementById('rv_perfil').textContent  = document.getElementById('f_perfil').value;
   document.getElementById('rv_email').textContent   = document.getElementById('f_email').value;
   const mod = document.querySelector('input[name="modulo"]:checked');
   document.getElementById('rv_modulo').textContent  = mod ? mod.value : '—';
   document.getElementById('rv_data').textContent    = document.getElementById('f_data').value || '—';
   document.getElementById('rv_horario').textContent = document.getElementById('f_horario').value || '—';
 }
+
+// Máscara CNPJ: 00.000.000/0000-00
+document.getElementById('f_cnpj').addEventListener('input', function() {
+  let v = this.value.replace(/\D/g, '').slice(0, 14);
+  if (v.length > 12) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{0,2})/, '$1.$2.$3/$4-$5');
+  else if (v.length > 8) v = v.replace(/^(\d{2})(\d{3})(\d{3})(\d{0,4})/, '$1.$2.$3/$4');
+  else if (v.length > 5) v = v.replace(/^(\d{2})(\d{3})(\d{0,3})/, '$1.$2.$3');
+  else if (v.length > 2) v = v.replace(/^(\d{2})(\d{0,3})/, '$1.$2');
+  this.value = v;
+});
 
 document.getElementById('wizardForm').addEventListener('submit', function(e) {
   if (!document.getElementById('f_descricao').value.trim()) {

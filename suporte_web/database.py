@@ -64,6 +64,8 @@ def init_db():
                     cliente_nome     TEXT NOT NULL,
                     cliente_email    TEXT NOT NULL,
                     cliente_empresa  TEXT NOT NULL,
+                    cliente_cnpj     TEXT,
+                    cliente_perfil   TEXT,
                     cliente_telefone TEXT,
                     modulo           TEXT NOT NULL,
                     data             TEXT NOT NULL,
@@ -76,6 +78,10 @@ def init_db():
                     atualizado_em    TEXT
                 )
             ''')
+
+            # Migração: adiciona colunas se não existirem (instâncias já criadas)
+            c.execute('ALTER TABLE agendamentos ADD COLUMN IF NOT EXISTS cliente_cnpj TEXT')
+            c.execute('ALTER TABLE agendamentos ADD COLUMN IF NOT EXISTS cliente_perfil TEXT')
 
             c.execute('''
                 CREATE TABLE IF NOT EXISTS funcionarios (
@@ -324,11 +330,14 @@ def criar_agendamento(dados) -> str:
         with conn.cursor() as c:
             c.execute(
                 '''INSERT INTO agendamentos
-                   (codigo, cliente_nome, cliente_email, cliente_empresa, cliente_telefone,
-                    modulo, data, horario, descricao, criado_em, funcionario_id)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
+                   (codigo, cliente_nome, cliente_email, cliente_empresa, cliente_cnpj,
+                    cliente_perfil, cliente_telefone, modulo, data, horario, descricao,
+                    criado_em, funcionario_id)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
                 (codigo,
-                 dados['nome'], dados['email'], dados['empresa'], dados.get('telefone', ''),
+                 dados['nome'], dados['email'], dados['empresa'],
+                 dados.get('cnpj', ''), dados.get('perfil_jettax', ''),
+                 dados.get('telefone', ''),
                  modulo, data, horario, dados['descricao'], agora, func_id)
             )
         conn.commit()

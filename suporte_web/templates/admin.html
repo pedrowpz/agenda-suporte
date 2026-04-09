@@ -230,7 +230,11 @@
           {% for ag in recentes %}
           <tr>
             <td><strong>{{ ag.codigo }}</strong></td>
-            <td>{{ ag.cliente_nome }}<br><small class="text-muted">{{ ag.cliente_empresa }}</small></td>
+            <td>
+              {{ ag.cliente_nome }}<br>
+              <small class="text-muted">{{ ag.cliente_empresa }}</small>
+              {% if ag.cliente_cnpj %}<br><small class="text-muted">{{ ag.cliente_cnpj }}</small>{% endif %}
+            </td>
             <td>{{ ag.modulo }}</td>
             <td>{{ ag.data }}</td>
             <td>{{ ag.horario }}</td>
@@ -328,7 +332,12 @@
           {% for ag in agendamentos %}
           <tr>
             <td><strong>{{ ag.codigo }}</strong></td>
-            <td>{{ ag.cliente_nome }}<br><small class="text-muted">{{ ag.cliente_empresa }}</small></td>
+            <td>
+              {{ ag.cliente_nome }}<br>
+              <small class="text-muted">{{ ag.cliente_empresa }}</small>
+              {% if ag.cliente_cnpj %}<br><small class="text-muted">CNPJ: {{ ag.cliente_cnpj }}</small>{% endif %}
+              {% if ag.cliente_perfil %}<br><small class="text-muted">Perfil: {{ ag.cliente_perfil }}</small>{% endif %}
+            </td>
             <td style="font-size:13px;">{{ ag.modulo }}</td>
             <td>{{ ag.data }}</td>
             <td>{{ ag.horario }}</td>
