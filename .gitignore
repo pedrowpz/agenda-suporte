@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ambiente virtual
+suporte_web/.venv/
+
+# Banco de dados local
+suporte_web/dados/
+
+# Variáveis de ambiente (contém senhas)
+suporte_web/.env
+
+# Credenciais salvas localmente
+suporte_web/CREDENCIAIS.txt
+
+# Logs
+*.log
+nohup.out
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Claude Code (configurações locais)
+.claude/

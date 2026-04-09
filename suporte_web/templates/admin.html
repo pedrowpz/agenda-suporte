@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jettax — Administração</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    /* ── Login ── */
+    .login-page {
+      min-height:100vh; background:var(--grad-hero);
+      display:flex; align-items:center; justify-content:center; padding:24px;
+    }
+    .login-card {
+      background:#fff; border-radius:var(--radius-xl);
+      padding:48px 40px; width:100%; max-width:420px; box-shadow:var(--shadow-lg);
+      animation: popIn .35s ease;
+    }
+    @keyframes popIn { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
+    .login-logo { font-family:'Exo',sans-serif;font-size:28px;font-weight:800;color:var(--primary); }
+    .login-logo span { color:var(--accent); }
+    .login-sub { color:var(--muted);font-size:14px;margin-bottom:32px; }
+
+    /* ── Shell ── */
+    .shell { display:flex; min-height:100vh; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width:240px; flex-shrink:0;
+      background:var(--grad-primary);
+      display:flex; flex-direction:column;
+    }
+    .sb-brand { padding:24px 20px 16px; border-bottom:1px solid rgba(255,255,255,0.1); }
+    .sb-logo { font-family:'Exo',sans-serif;font-size:20px;font-weight:800;color:#fff; }
+    .sb-logo span { color:var(--accent); }
+    .sb-role { font-size:11px;color:rgba(255,255,255,0.45);margin-top:2px; }
+    .sb-user { padding:14px 20px;border-bottom:1px solid rgba(255,255,255,0.1);display:flex;align-items:center;gap:10px; }
+    .sb-avatar { width:34px;height:34px;border-radius:50%;background:var(--grad-accent);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#fff;flex-shrink:0; }
+    .sb-uname { font-size:13px;font-weight:700;color:#fff; }
+    .sb-ucargo { font-size:11px;color:rgba(255,255,255,0.45); }
+    .sb-nav { padding:16px 12px;flex:1; }
+    .sb-section { font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:rgba(255,255,255,0.3);padding:4px 8px;margin-bottom:4px;margin-top:12px; }
+    .sb-link {
+      display:flex;align-items:center;gap:10px;width:100%;
+      padding:10px 12px;border-radius:var(--radius-sm);
+      background:transparent;border:none;
+      color:rgba(255,255,255,0.65);
+      font-family:'Nunito',sans-serif;font-size:14px;font-weight:600;
+      cursor:pointer;text-decoration:none;transition:all .2s;margin-bottom:2px;
+    }
+    .sb-link:hover,.sb-link.active { background:rgba(255,255,255,0.12);color:#fff; }
+    .sb-link .icon { font-size:16px;width:20px;text-align:center; }
+    .sb-bottom { padding:14px 12px;border-top:1px solid rgba(255,255,255,0.1); }
+
+    /* ── Main ── */
+    .main { flex:1;display:flex;flex-direction:column;overflow-x:hidden; }
+    .topbar {
+      background:#fff;border-bottom:1px solid var(--border);
+      padding:16px 28px;display:flex;align-items:center;justify-content:space-between;gap:16px;
+    }
+    .topbar-title { font-family:'Exo',sans-serif;font-size:20px;font-weight:800;color:var(--primary); }
+    .content { padding:24px 28px;flex:1; }
+
+    /* ── Dashboard grid ── */
+    .kpi-grid { display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:24px; }
+    @media(max-width:1100px){ .kpi-grid{grid-template-columns:repeat(3,1fr);} }
+    @media(max-width:700px) { .kpi-grid{grid-template-columns:repeat(2,1fr);} }
+
+    .charts-grid { display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px; }
+    @media(max-width:860px){ .charts-grid{grid-template-columns:1fr;} }
+
+    .chart-card { background:#fff;border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);padding:20px; }
+    .chart-title { font-family:'Exo',sans-serif;font-size:14px;font-weight:700;color:var(--primary);margin-bottom:16px; }
+    .chart-wrap { position:relative;height:220px; }
+
+    /* ── Filters bar ── */
+    .filters-bar {
+      background:#fff;border:1px solid var(--border);border-radius:var(--radius);
+      padding:16px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;
+    }
+    .filters-bar .form-control { max-width:200px; padding:8px 12px; font-size:13px; }
+
+    /* ── Appointment table actions ── */
+    .btn-icon {
+      width:32px;height:32px;border-radius:8px;border:none;cursor:pointer;
+      display:inline-flex;align-items:center;justify-content:center;font-size:14px;
+      transition:all .2s;background:var(--bg);
+    }
+    .btn-icon:hover { background:var(--accent);color:#fff; }
+
+    /* ── Employees & modules ── */
+    .mgmt-grid { display:grid;grid-template-columns:1fr 1fr;gap:20px; }
+    @media(max-width:800px){ .mgmt-grid{grid-template-columns:1fr;} }
+
+    .tag-ativo   { background:#D1FAE5;color:#065F46;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700; }
+    .tag-inativo { background:#FEE2E2;color:#991B1B;padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700; }
+
+    .empty-state { text-align:center;padding:48px 24px;color:var(--muted); }
+    .empty-state .ei { font-size:48px;margin-bottom:12px; }
+  </style>
+</head>
+<body>
+
+{% if page == 'login' %}
+<!-- ══ LOGIN ═══════════════════════════════════════════════════════════════ -->
+<div class="login-page">
+  <div class="login-card">
+    <div class="login-logo">Jettax<span>.</span></div>
+    <div class="login-sub">Painel Administrativo</div>
+    {% if flash_msg %}
+    <div class="alert alert-error">⚠️ {{ flash_msg }}</div>
+    {% endif %}
+    <div style="font-size:20px;font-weight:700;color:var(--primary);margin-bottom:20px;">Acesso Restrito</div>
+    <form action="/admin/login" method="POST">
+      <div class="form-group">
+        <label class="form-label">E-mail</label>
+        <input type="email" name="email" class="form-control" placeholder="admin@jettax.com.br" required autofocus>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Senha</label>
+        <input type="password" name="senha" class="form-control" placeholder="••••••••" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full btn-lg" style="margin-top:8px;">Entrar</button>
+    </form>
+    <p style="text-align:center;margin-top:20px;font-size:13px;color:var(--muted);">
+      Demo: <strong>admin@jettax.com.br</strong> / <strong>jettax2024</strong>
+    </p>
+  </div>
+</div>
+
+{% else %}
+<!-- ══ ADMIN SHELL ══════════════════════════════════════════════════════════ -->
+<div class="shell">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sb-brand">
+      <div class="sb-logo">Jettax<span>.</span></div>
+      <div class="sb-role">Administração</div>
+    </div>
+    <div class="sb-user">
+      <div class="sb-avatar">{{ session.admin_nome[0] }}</div>
+      <div>
+        <div class="sb-uname">{{ session.admin_nome }}</div>
+        <div class="sb-ucargo">Administrador</div>
+      </div>
+    </div>
+    <nav class="sb-nav">
+      <div class="sb-section">Menu</div>
+      <a href="/admin/dashboard"     class="sb-link {% if page=='dashboard'     %}active{% endif %}"><span class="icon">📊</span> Dashboard</a>
+      <a href="/admin/agendamentos"  class="sb-link {% if page=='agendamentos'  %}active{% endif %}"><span class="icon">📋</span> Agendamentos</a>
+      <div class="sb-section">Configurações</div>
+      <a href="/admin/funcionarios"  class="sb-link {% if page=='funcionarios'  %}active{% endif %}"><span class="icon">👥</span> Consultores</a>
+      <a href="/admin/modulos"       class="sb-link {% if page=='modulos'       %}active{% endif %}"><span class="icon">🧩</span> Módulos</a>
+    </nav>
+    <div class="sb-bottom">
+      <a href="/admin/logout" class="btn btn-ghost btn-full btn-sm" style="color:rgba(255,255,255,0.6);border-color:rgba(255,255,255,0.2);">Sair</a>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <div>
+        {% if page == 'dashboard'    %}<div class="topbar-title">Dashboard</div>
+        {% elif page == 'agendamentos' %}<div class="topbar-title">Agendamentos</div>
+        {% elif page == 'funcionarios' %}<div class="topbar-title">Consultores</div>
+        {% elif page == 'modulos'    %}<div class="topbar-title">Módulos</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="content">
+
+    {# ══ DASHBOARD ══════════════════════════════════════════════════════════ #}
+    {% if page == 'dashboard' %}
+
+    <!-- KPIs -->
+    <div class="kpi-grid">
+      <div class="stat-card">
+        <div class="stat-icon navy">📋</div>
+        <div class="stat-info"><div class="stat-value">{{ stats.total }}</div><div class="stat-label">Total</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon yellow">⏳</div>
+        <div class="stat-info"><div class="stat-value">{{ stats.pendentes }}</div><div class="stat-label">Pendentes</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green">✅</div>
+        <div class="stat-info"><div class="stat-value">{{ stats.confirmados }}</div><div class="stat-label">Confirmados</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon blue">🏁</div>
+        <div class="stat-info"><div class="stat-value">{{ stats.concluidos }}</div><div class="stat-label">Concluídos</div></div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon red">❌</div>
+        <div class="stat-info"><div class="stat-value">{{ stats.cancelados }}</div><div class="stat-label">Cancelados</div></div>
+      </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-title">📈 Agendamentos — últimos 7 dias</div>
+        <div class="chart-wrap"><canvas id="chartLine"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">🍩 Por status</div>
+        <div class="chart-wrap"><canvas id="chartDonut"></canvas></div>
+      </div>
+      <div class="chart-card" style="grid-column:1/-1;">
+        <div class="chart-title">📊 Agendamentos por módulo</div>
+        <div class="chart-wrap" style="height:260px;"><canvas id="chartBar"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Recent table -->
+    <div class="card">
+      <div class="card-header"><h3>Agendamentos recentes</h3><a href="/admin/agendamentos" class="btn btn-ghost btn-sm">Ver todos</a></div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Código</th><th>Cliente</th><th>Módulo</th><th>Data</th><th>Horário</th><th>Status</th>
+          </tr></thead>
+          <tbody>
+          {% for ag in recentes %}
+          <tr>
+            <td><strong>{{ ag.codigo }}</strong></td>
+            <td>{{ ag.cliente_nome }}<br><small class="text-muted">{{ ag.cliente_empresa }}</small></td>
+            <td>{{ ag.modulo }}</td>
+            <td>{{ ag.data }}</td>
+            <td>{{ ag.horario }}</td>
+            <td>
+              {% if ag.status=='Pendente'   %}<span class="badge badge-pendente">{{ ag.status }}</span>
+              {% elif ag.status=='Confirmado'%}<span class="badge badge-confirmado">{{ ag.status }}</span>
+              {% elif ag.status=='Concluído' %}<span class="badge badge-concluido">{{ ag.status }}</span>
+              {% else %}<span class="badge badge-cancelado">{{ ag.status }}</span>{% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" style="text-align:center;color:var(--muted);padding:32px;">Nenhum agendamento ainda.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <script>
+    const ACCENT = '#00AFFA', TEAL = '#0BE3CC', NAVY = '#002670';
+    const PALETTE = [ACCENT, TEAL, NAVY, '#60A5FA', '#A78BFA', '#F472B6', '#34D399', '#FBBF24'];
+
+    // Line chart
+    new Chart(document.getElementById('chartLine'), {
+      type: 'line',
+      data: {
+        labels: {{ stats.ultimos_7 | map(attribute='data') | list | tojson }},
+        datasets: [{
+          label: 'Agendamentos',
+          data: {{ stats.ultimos_7 | map(attribute='total') | list | tojson }},
+          borderColor: ACCENT,
+          backgroundColor: 'rgba(0,175,250,0.12)',
+          borderWidth: 2.5,
+          pointBackgroundColor: ACCENT,
+          pointRadius: 5,
+          fill: true,
+          tension: 0.4,
+        }]
+      },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{stepSize:1},grid:{color:'rgba(0,0,0,0.05)'}},x:{grid:{display:false}}} }
+    });
+
+    // Donut chart
+    const statusData = {{ stats.por_status | tojson }};
+    const statusColors = {'Pendente':'#F59E0B','Confirmado':'#10B981','Concluído':'#60A5FA','Cancelado':'#F87171'};
+    new Chart(document.getElementById('chartDonut'), {
+      type: 'doughnut',
+      data: {
+        labels: statusData.map(s => s.status),
+        datasets: [{ data: statusData.map(s => s.total), backgroundColor: statusData.map(s => statusColors[s.status] || ACCENT), borderWidth: 0, hoverOffset: 8 }]
+      },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom',labels:{padding:14,font:{family:'Nunito',size:12}}}} }
+    });
+
+    // Bar chart
+    const modData = {{ stats.por_modulo | tojson }};
+    new Chart(document.getElementById('chartBar'), {
+      type: 'bar',
+      data: {
+        labels: modData.map(m => m.modulo),
+        datasets: [{ label:'Agendamentos', data: modData.map(m => m.total), backgroundColor: modData.map((_,i) => PALETTE[i % PALETTE.length]), borderRadius: 8, borderSkipped: false }]
+      },
+      options: { responsive:true, maintainAspectRatio:false, indexAxis:'y', plugins:{legend:{display:false}}, scales:{x:{beginAtZero:true,ticks:{stepSize:1},grid:{color:'rgba(0,0,0,0.05)'}},y:{grid:{display:false},ticks:{font:{size:12}}}} }
+    });
+    </script>
+
+    {# ══ AGENDAMENTOS ════════════════════════════════════════════════════════ #}
+    {% elif page == 'agendamentos' %}
+
+    <form method="GET" action="/admin/agendamentos" class="filters-bar">
+      <select name="status" class="form-control">
+        <option value="">Todos os status</option>
+        {% for s in ['Pendente','Confirmado','Concluído','Cancelado'] %}
+        <option {% if sf==s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+      <select name="modulo" class="form-control">
+        <option value="">Todos os módulos</option>
+        {% for m in modulos %}
+        <option {% if mf==m.nome %}selected{% endif %}>{{ m.nome }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
+      <a href="/admin/agendamentos" class="btn btn-ghost btn-sm">Limpar</a>
+      <span class="text-muted text-sm" style="margin-left:auto;">{{ agendamentos|length }} resultado(s)</span>
+    </form>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th>Código</th><th>Cliente / Empresa</th><th>Módulo</th><th>Data</th><th>Hr</th><th>Status</th><th>Ações</th>
+          </tr></thead>
+          <tbody>
+          {% for ag in agendamentos %}
+          <tr>
+            <td><strong>{{ ag.codigo }}</strong></td>
+            <td>{{ ag.cliente_nome }}<br><small class="text-muted">{{ ag.cliente_empresa }}</small></td>
+            <td style="font-size:13px;">{{ ag.modulo }}</td>
+            <td>{{ ag.data }}</td>
+            <td>{{ ag.horario }}</td>
+            <td>
+              {% if ag.status=='Pendente'    %}<span class="badge badge-pendente">{{ ag.status }}</span>
+              {% elif ag.status=='Confirmado' %}<span class="badge badge-confirmado">{{ ag.status }}</span>
+              {% elif ag.status=='Concluído'  %}<span class="badge badge-concluido">{{ ag.status }}</span>
+              {% else %}<span class="badge badge-cancelado">{{ ag.status }}</span>{% endif %}
+            </td>
+            <td>
+              <button class="btn-icon" title="Alterar status" onclick="openEdit('{{ ag.codigo }}','{{ ag.status }}')">✏️</button>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" style="text-align:center;color:var(--muted);padding:32px;">Nenhum resultado.</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Edit modal -->
+    <div class="modal-overlay" id="editModal">
+      <div class="modal">
+        <div class="modal-title">✏️ Alterar Status</div>
+        <input type="hidden" id="edit_codigo">
+        <div class="form-group">
+          <label class="form-label">Novo status</label>
+          <select id="edit_status" class="form-control">
+            <option>Pendente</option>
+            <option>Confirmado</option>
+            <option>Concluído</option>
+            <option>Cancelado</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Observação</label>
+          <textarea id="edit_obs" class="form-control" rows="2" placeholder="Opcional..."></textarea>
+        </div>
+        <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:16px;">
+          <button class="btn btn-ghost" onclick="closeEdit()">Cancelar</button>
+          <button class="btn btn-accent" onclick="salvarEdit()">Salvar</button>
+        </div>
+      </div>
+    </div>
+    <script>
+    function openEdit(codigo, status) {
+      document.getElementById('edit_codigo').value = codigo;
+      document.getElementById('edit_status').value = status;
+      document.getElementById('edit_obs').value = '';
+      document.getElementById('editModal').classList.add('open');
+    }
+    function closeEdit() { document.getElementById('editModal').classList.remove('open'); }
+    function salvarEdit() {
+      const fd = new FormData();
+      fd.append('codigo', document.getElementById('edit_codigo').value);
+      fd.append('status', document.getElementById('edit_status').value);
+      fd.append('observacoes', document.getElementById('edit_obs').value);
+      fetch('/admin/atualizar', {method:'POST',body:fd})
+        .then(r=>r.json()).then(d=>{ if(d.ok) location.reload(); });
+    }
+    document.getElementById('editModal').addEventListener('click', function(e){ if(e.target===this) closeEdit(); });
+    </script>
+
+    {# ══ FUNCIONÁRIOS ════════════════════════════════════════════════════════ #}
+    {% elif page == 'funcionarios' %}
+
+    {% if flash_msg %}<div class="alert alert-error">⚠️ {{ flash_msg }}</div>{% endif %}
+
+    <div class="mgmt-grid">
+      <!-- List -->
+      <div class="card">
+        <div class="card-header"><h3>Consultores cadastrados</h3></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Nome</th><th>Cargo</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+            {% for f in funcionarios %}
+            <tr>
+              <td>{{ f.nome }}<br><small class="text-muted">{{ f.email }}</small></td>
+              <td>{{ f.cargo }}</td>
+              <td>{% if f.ativo %}<span class="tag-ativo">Ativo</span>{% else %}<span class="tag-inativo">Inativo</span>{% endif %}</td>
+              <td><a href="/admin/funcionarios/toggle/{{ f.id }}" class="btn-icon" title="Ativar/Inativar">🔄</a></td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" style="text-align:center;padding:24px;color:var(--muted)">Nenhum consultor.</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Add form -->
+      <div class="card">
+        <div class="card-header"><h3>Adicionar consultor</h3></div>
+        <div class="card-body">
+          <form action="/admin/funcionarios/criar" method="POST">
+            <div class="form-group"><label class="form-label">Nome</label><input type="text" name="nome" class="form-control" required placeholder="Nome completo"></div>
+            <div class="form-group"><label class="form-label">E-mail</label><input type="email" name="email" class="form-control" required placeholder="email@jettax.com.br"></div>
+            <div class="form-group"><label class="form-label">Senha</label><input type="password" name="senha" class="form-control" required placeholder="Senha inicial"></div>
+            <div class="form-group">
+              <label class="form-label">Cargo</label>
+              <select name="cargo" class="form-control">
+                <option>Consultor</option>
+                <option>Especialista</option>
+                <option>Administrador</option>
+              </select>
+            </div>
+            <button type="submit" class="btn btn-accent btn-full">Cadastrar</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    {# ══ MÓDULOS ═════════════════════════════════════════════════════════════ #}
+    {% elif page == 'modulos' %}
+
+    <div class="mgmt-grid">
+      <div class="card">
+        <div class="card-header"><h3>Módulos disponíveis</h3></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Nome</th><th>Descrição</th><th>Status</th><th></th></tr></thead>
+            <tbody>
+            {% for m in modulos %}
+            <tr>
+              <td><strong>{{ m.nome }}</strong></td>
+              <td style="font-size:13px;color:var(--muted)">{{ m.descricao or '—' }}</td>
+              <td>{% if m.ativo %}<span class="tag-ativo">Ativo</span>{% else %}<span class="tag-inativo">Inativo</span>{% endif %}</td>
+              <td><a href="/admin/modulos/toggle/{{ m.id }}" class="btn-icon" title="Ativar/Inativar">🔄</a></td>
+            </tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><h3>Adicionar módulo</h3></div>
+        <div class="card-body">
+          <form action="/admin/modulos/criar" method="POST">
+            <div class="form-group"><label class="form-label">Nome do módulo</label><input type="text" name="nome" class="form-control" required placeholder="Ex: SPED Fiscal"></div>
+            <div class="form-group"><label class="form-label">Descrição</label><textarea name="descricao" class="form-control" rows="2" placeholder="Breve descrição..."></textarea></div>
+            <button type="submit" class="btn btn-accent btn-full">Adicionar módulo</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    {% endif %}
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /shell -->
+{% endif %}
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const meta = document.querySelector("meta[name=csrf-token]");
+  if (!meta) return;
+  const token = meta.content;
+  // Injeta campo oculto em todos os formulários
+  document.querySelectorAll("form").forEach(function (f) {
+    if (!f.querySelector("input[name=csrf_token]")) {
+      const inp = document.createElement("input");
+      inp.type = "hidden"; inp.name = "csrf_token"; inp.value = token;
+      f.appendChild(inp);
+    }
+  });
+  // Injeta no body de requisições fetch POST
+  const _fetch = window.fetch;
+  window.fetch = function (url, opts) {
+    opts = opts || {};
+    if (opts.method && opts.method.toUpperCase() === "POST" && opts.body instanceof FormData) {
+      opts.body.append("csrf_token", token);
+    }
+    return _fetch(url, opts);
+  };
+});
+</script>
+</body>
+</html>

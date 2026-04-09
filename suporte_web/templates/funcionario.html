@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jettax — Portal do Consultor</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    /* ── Login ── */
+    .login-page {
+      min-height: 100vh;
+      background: var(--grad-hero);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .login-card {
+      background: #fff;
+      border-radius: var(--radius-xl);
+      padding: 48px 40px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: var(--shadow-lg);
+      animation: popIn 0.35s ease;
+    }
+    @keyframes popIn { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:translateY(0); } }
+    .login-logo { font-family:'Exo',sans-serif; font-size:28px; font-weight:800; color:var(--primary); margin-bottom:4px; }
+    .login-logo span { color:var(--accent); }
+    .login-sub { color:var(--muted); font-size:14px; margin-bottom:32px; }
+    .login-title { font-size:20px; font-weight:700; color:var(--primary); margin-bottom:20px; }
+
+    /* ── Dashboard layout ── */
+    .dash { display: flex; min-height: 100vh; }
+
+    .sidebar {
+      width: 260px;
+      background: var(--grad-primary);
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      padding: 0;
+    }
+    .sidebar-brand {
+      padding: 28px 24px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .sidebar-logo { font-family:'Exo',sans-serif; font-size:22px; font-weight:800; color:#fff; }
+    .sidebar-logo span { color:var(--accent); }
+    .sidebar-role { font-size:12px; color:rgba(255,255,255,0.5); margin-top:2px; }
+
+    .sidebar-user {
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+    }
+    .user-avatar {
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      background: var(--grad-accent);
+      display: flex; align-items:center; justify-content:center;
+      font-weight:800; font-size:14px; color:#fff; flex-shrink:0;
+    }
+    .user-name { font-size:14px; font-weight:700; color:#fff; }
+    .user-cargo { font-size:11px; color:rgba(255,255,255,0.5); }
+
+    .sidebar-filters { padding: 20px 24px; flex: 1; }
+    .filter-label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; color:rgba(255,255,255,0.4); margin-bottom:10px; }
+
+    .filter-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      border: none;
+      color: rgba(255,255,255,0.7);
+      font-family:'Nunito',sans-serif;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.2s;
+      margin-bottom: 4px;
+    }
+    .filter-btn:hover, .filter-btn.active {
+      background: rgba(255,255,255,0.12);
+      color: #fff;
+    }
+    .filter-btn .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .dot-all       { background: rgba(255,255,255,0.4); }
+    .dot-pendente  { background: #F59E0B; }
+    .dot-confirmado{ background: #10B981; }
+    .dot-concluido { background: #60A5FA; }
+    .dot-cancelado { background: #F87171; }
+
+    .badge-count {
+      margin-left: auto;
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 99px;
+    }
+
+    .sidebar-bottom {
+      padding: 16px 24px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+    }
+
+    /* ── Main area ── */
+    .main { flex: 1; display: flex; flex-direction: column; overflow-x: hidden; }
+
+    .topbar {
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      padding: 16px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .topbar-title { font-family:'Exo',sans-serif; font-size:20px; font-weight:800; color:var(--primary); }
+    .topbar-sub { font-size:13px; color:var(--muted); }
+
+    .content { padding: 28px; flex: 1; }
+
+    /* ── Stats strip ── */
+    .stats-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    @media (max-width: 900px) { .stats-strip { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 500px) { .stats-strip { grid-template-columns: 1fr; } }
+
+    /* ── Appointment cards ── */
+    .ag-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 16px;
+    }
+    @media (max-width: 720px) { .ag-grid { grid-template-columns: 1fr; } }
+
+    .ag-card {
+      background: #fff;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .ag-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); }
+
+    .ag-card-header {
+      padding: 14px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .ag-codigo { font-family:'Exo',sans-serif; font-weight:800; font-size:13px; color:var(--primary); }
+    .ag-card-body { padding: 16px 18px; }
+    .ag-module {
+      font-family:'Exo',sans-serif;
+      font-weight:700;
+      font-size:15px;
+      color:var(--primary);
+      margin-bottom: 8px;
+    }
+    .ag-info { display:flex; flex-direction:column; gap:5px; margin-bottom:14px; }
+    .ag-info-row { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--muted); }
+    .ag-info-row strong { color:var(--text); }
+    .ag-descricao {
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      font-size:13px;
+      color:var(--text);
+      border-left: 3px solid var(--accent);
+      margin-bottom: 14px;
+      line-height: 1.5;
+    }
+
+    .ag-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .status-select {
+      flex: 1;
+      padding: 8px 12px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-family:'Nunito',sans-serif;
+      font-size:13px;
+      cursor:pointer;
+      outline:none;
+      background:#fff;
+      transition: border-color 0.2s;
+    }
+    .status-select:focus { border-color:var(--accent); }
+
+    .today-tag {
+      background: linear-gradient(135deg, #F59E0B, #FBBF24);
+      color:#fff;
+      font-size:10px;
+      font-weight:800;
+      padding:2px 8px;
+      border-radius:99px;
+      letter-spacing:0.5px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 64px 24px;
+      color: var(--muted);
+    }
+    .empty-state .empty-icon { font-size:56px; margin-bottom:16px; }
+    .empty-state h3 { font-size:18px; color:var(--primary); margin-bottom:8px; }
+
+    /* Mobile sidebar */
+    @media (max-width: 768px) {
+      .sidebar { display:none; }
+      .dash { flex-direction: column; }
+      .mobile-bar {
+        background: var(--grad-primary);
+        padding: 16px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+    }
+    @media (min-width: 769px) { .mobile-bar { display: none; } }
+  </style>
+</head>
+<body>
+
+{% if page == 'login' %}
+<!-- ══ LOGIN ══════════════════════════════════════════════════════════════════ -->
+<div class="login-page">
+  <div class="login-card">
+    <div class="login-logo">Jettax<span>.</span></div>
+    <div class="login-sub">Portal do Consultor</div>
+
+    {% if flash_msg %}
+    <div class="alert alert-error">⚠️ {{ flash_msg }}</div>
+    {% endif %}
+
+    <div class="login-title">Entrar na sua conta</div>
+    <form action="/funcionario/login" method="POST">
+      <div class="form-group">
+        <label class="form-label">E-mail</label>
+        <input type="email" name="email" class="form-control" placeholder="seu@jettax.com.br" required autofocus>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Senha</label>
+        <input type="password" name="senha" class="form-control" placeholder="••••••••" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full btn-lg" style="margin-top:8px;">
+        Entrar no Portal
+      </button>
+    </form>
+    <p style="text-align:center;margin-top:20px;font-size:13px;color:var(--muted);">
+      Credenciais demo: <strong>consultor@jettax.com.br</strong> / <strong>jettax2024</strong>
+    </p>
+  </div>
+</div>
+
+{% else %}
+<!-- ══ DASHBOARD ══════════════════════════════════════════════════════════════ -->
+{% set total     = agendamentos | length %}
+{% set pendentes = agendamentos | selectattr('status','eq','Pendente')   | list | length %}
+{% set confirm   = agendamentos | selectattr('status','eq','Confirmado') | list | length %}
+{% set hoje_ags  = agendamentos | selectattr('data','eq',hoje)           | list | length %}
+
+<div class="mobile-bar">
+  <div style="font-family:'Exo',sans-serif;font-weight:800;color:#fff;font-size:18px;">Jettax<span style="color:var(--accent)">.</span></div>
+  <a href="/funcionario/logout" style="color:rgba(255,255,255,0.7);font-size:13px;">Sair</a>
+</div>
+
+<div class="dash">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-logo">Jettax<span>.</span></div>
+      <div class="sidebar-role">Portal do Consultor</div>
+    </div>
+
+    <div class="sidebar-user">
+      <div class="user-avatar">{{ session.func_nome[0] }}</div>
+      <div>
+        <div class="user-name">{{ session.func_nome }}</div>
+        <div class="user-cargo">{{ session.func_cargo }}</div>
+      </div>
+    </div>
+
+    <div class="sidebar-filters">
+      <div class="filter-label">Filtrar por status</div>
+      <a href="/funcionario/dashboard" class="filter-btn {% if not status_filter %}active{% endif %}">
+        <span class="dot dot-all"></span> Todos
+        <span class="badge-count">{{ total }}</span>
+      </a>
+      <a href="/funcionario/dashboard?status=Pendente" class="filter-btn {% if status_filter=='Pendente' %}active{% endif %}">
+        <span class="dot dot-pendente"></span> Pendente
+        <span class="badge-count">{{ pendentes }}</span>
+      </a>
+      <a href="/funcionario/dashboard?status=Confirmado" class="filter-btn {% if status_filter=='Confirmado' %}active{% endif %}">
+        <span class="dot dot-confirmado"></span> Confirmado
+        <span class="badge-count">{{ confirm }}</span>
+      </a>
+      <a href="/funcionario/dashboard?status=Concluído" class="filter-btn {% if status_filter=='Concluído' %}active{% endif %}">
+        <span class="dot dot-concluido"></span> Concluído
+      </a>
+      <a href="/funcionario/dashboard?status=Cancelado" class="filter-btn {% if status_filter=='Cancelado' %}active{% endif %}">
+        <span class="dot dot-cancelado"></span> Cancelado
+      </a>
+    </div>
+
+    <div class="sidebar-bottom">
+      <a href="/funcionario/logout" class="btn btn-ghost btn-full btn-sm" style="color:rgba(255,255,255,0.6);border-color:rgba(255,255,255,0.2);">
+        Sair
+      </a>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <div>
+        <div class="topbar-title">Agendamentos</div>
+        <div class="topbar-sub">Gerencie os atendimentos agendados pelos clientes</div>
+      </div>
+      <div style="font-size:13px;color:var(--muted);">📅 Hoje: <strong style="color:var(--primary)">{{ hoje }}</strong></div>
+    </div>
+
+    <div class="content">
+      <!-- Stats strip -->
+      <div class="stats-strip">
+        <div class="stat-card">
+          <div class="stat-icon navy">📋</div>
+          <div class="stat-info"><div class="stat-value">{{ total }}</div><div class="stat-label">Total exibido</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon yellow">⏳</div>
+          <div class="stat-info"><div class="stat-value">{{ pendentes }}</div><div class="stat-label">Pendentes</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon green">✅</div>
+          <div class="stat-info"><div class="stat-value">{{ confirm }}</div><div class="stat-label">Confirmados</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon blue">📅</div>
+          <div class="stat-info"><div class="stat-value">{{ hoje_ags }}</div><div class="stat-label">Hoje</div></div>
+        </div>
+      </div>
+
+      <!-- Cards -->
+      {% if agendamentos %}
+      <div class="ag-grid">
+        {% for ag in agendamentos %}
+        <div class="ag-card">
+          <div class="ag-card-header">
+            <span class="ag-codigo">#{{ ag.codigo }}</span>
+            <div style="display:flex;gap:8px;align-items:center;">
+              {% if ag.data == hoje %}<span class="today-tag">HOJE</span>{% endif %}
+              {% if ag.status == 'Pendente' %}
+                <span class="badge badge-pendente">{{ ag.status }}</span>
+              {% elif ag.status == 'Confirmado' %}
+                <span class="badge badge-confirmado">{{ ag.status }}</span>
+              {% elif ag.status == 'Concluído' %}
+                <span class="badge badge-concluido">{{ ag.status }}</span>
+              {% else %}
+                <span class="badge badge-cancelado">{{ ag.status }}</span>
+              {% endif %}
+            </div>
+          </div>
+          <div class="ag-card-body">
+            <div class="ag-module">🎯 {{ ag.modulo }}</div>
+            <div class="ag-info">
+              <div class="ag-info-row">👤 <strong>{{ ag.cliente_nome }}</strong> — {{ ag.cliente_empresa }}</div>
+              <div class="ag-info-row">✉️ {{ ag.cliente_email }}</div>
+              {% if ag.cliente_telefone %}<div class="ag-info-row">📱 {{ ag.cliente_telefone }}</div>{% endif %}
+              <div class="ag-info-row">📅 <strong>{{ ag.data }}</strong> às <strong>{{ ag.horario }}</strong></div>
+            </div>
+            <div class="ag-descricao">{{ ag.descricao }}</div>
+            {% if ag.observacoes %}
+            <div style="font-size:12px;color:var(--muted);margin-bottom:12px;">
+              💬 <em>{{ ag.observacoes }}</em>
+            </div>
+            {% endif %}
+            <div class="ag-actions">
+              <select class="status-select" id="sel_{{ ag.codigo }}">
+                <option {% if ag.status=='Pendente'   %}selected{% endif %}>Pendente</option>
+                <option {% if ag.status=='Confirmado' %}selected{% endif %}>Confirmado</option>
+                <option {% if ag.status=='Concluído'  %}selected{% endif %}>Concluído</option>
+                <option {% if ag.status=='Cancelado'  %}selected{% endif %}>Cancelado</option>
+              </select>
+              <button class="btn btn-accent btn-sm" onclick="atualizarStatus('{{ ag.codigo }}')">Salvar</button>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <div class="empty-icon">📭</div>
+        <h3>Nenhum agendamento encontrado</h3>
+        <p>Não há atendimentos para o filtro selecionado.</p>
+      </div>
+      {% endif %}
+    </div><!-- /content -->
+  </div><!-- /main -->
+</div><!-- /dash -->
+
+<!-- Modal observação -->
+<div class="modal-overlay" id="obsModal">
+  <div class="modal">
+    <div class="modal-title">✏️ Observação (opcional)</div>
+    <div class="form-group">
+      <label class="form-label">Adicionar observação</label>
+      <textarea id="obsTexto" class="form-control" rows="3" placeholder="Ex: Cliente confirmou presença por telefone..."></textarea>
+    </div>
+    <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:16px;">
+      <button class="btn btn-ghost" onclick="closeModal()">Cancelar</button>
+      <button class="btn btn-accent" onclick="confirmarSalvar()">Salvar status</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let _pendingCodigo = null;
+let _pendingStatus = null;
+
+function atualizarStatus(codigo) {
+  _pendingCodigo = codigo;
+  _pendingStatus = document.getElementById('sel_' + codigo).value;
+  document.getElementById('obsTexto').value = '';
+  document.getElementById('obsModal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('obsModal').classList.remove('open');
+}
+
+function confirmarSalvar() {
+  const obs = document.getElementById('obsTexto').value;
+  const form = new FormData();
+  form.append('codigo', _pendingCodigo);
+  form.append('status', _pendingStatus);
+  form.append('observacoes', obs);
+  closeModal();
+  fetch('/funcionario/atualizar', { method:'POST', body: form })
+    .then(r => r.json())
+    .then(d => { if (d.ok) location.reload(); });
+}
+
+document.getElementById('obsModal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+</script>
+{% endif %}
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const meta = document.querySelector("meta[name=csrf-token]");
+  if (!meta) return;
+  const token = meta.content;
+  // Injeta campo oculto em todos os formulários
+  document.querySelectorAll("form").forEach(function (f) {
+    if (!f.querySelector("input[name=csrf_token]")) {
+      const inp = document.createElement("input");
+      inp.type = "hidden"; inp.name = "csrf_token"; inp.value = token;
+      f.appendChild(inp);
+    }
+  });
+  // Injeta no body de requisições fetch POST
+  const _fetch = window.fetch;
+  window.fetch = function (url, opts) {
+    opts = opts || {};
+    if (opts.method && opts.method.toUpperCase() === "POST" && opts.body instanceof FormData) {
+      opts.body.append("csrf_token", token);
+    }
+    return _fetch(url, opts);
+  };
+});
+</script>
+</body>
+</html>

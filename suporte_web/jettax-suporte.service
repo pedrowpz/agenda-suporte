@@ -1,0 +1,31 @@
+# Serviço systemd — Jettax Suporte
+# Instalação:
+#   sudo cp jettax-suporte.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable jettax-suporte
+#   sudo systemctl start  jettax-suporte
+
+[Unit]
+Description=Jettax — Sistema de Agendamento de Suporte
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=pedro
+WorkingDirectory=/home/pedro/Documentos/Agenda-python-master/suporte_web
+EnvironmentFile=/home/pedro/Documentos/Agenda-python-master/suporte_web/.env
+ExecStart=/home/pedro/Documentos/Agenda-python-master/suporte_web/.venv/bin/gunicorn \
+          -c gunicorn.conf.py app:app
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=jettax-suporte
+
+# Segurança
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jettax — Agendar Suporte</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    /* ── Layout ── */
+    .page { min-height: 100vh; display: flex; flex-direction: column; }
+
+    /* ── Hero header ── */
+    .hero {
+      background: var(--grad-hero);
+      padding: 28px 40px 80px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute;
+      right: -60px; top: -60px;
+      width: 360px; height: 360px;
+      border-radius: 50%;
+      background: rgba(0, 175, 250, 0.08);
+    }
+    .hero::after {
+      content: '';
+      position: absolute;
+      right: 120px; bottom: -80px;
+      width: 240px; height: 240px;
+      border-radius: 50%;
+      background: rgba(11, 227, 204, 0.06);
+    }
+    .hero-nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 40px;
+    }
+    .logo {
+      font-family: 'Exo', sans-serif;
+      font-size: 26px;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -0.5px;
+    }
+    .logo span { color: var(--accent); }
+    .hero-content { max-width: 640px; position: relative; z-index: 1; }
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0, 175, 250, 0.18);
+      color: var(--accent);
+      padding: 6px 16px;
+      border-radius: var(--radius-full);
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      border: 1px solid rgba(0, 175, 250, 0.3);
+    }
+    .hero h1 {
+      font-size: 38px;
+      color: #fff;
+      font-weight: 800;
+      margin-bottom: 12px;
+      line-height: 1.15;
+    }
+    .hero h1 span { color: var(--accent); }
+    .hero p { color: rgba(255,255,255,0.75); font-size: 16px; max-width: 500px; }
+
+    /* ── Wizard container ── */
+    .wizard-wrap {
+      flex: 1;
+      max-width: 760px;
+      width: 100%;
+      margin: -44px auto 48px;
+      padding: 0 20px;
+      position: relative;
+      z-index: 2;
+    }
+
+    /* ── Steps indicator ── */
+    .steps {
+      display: flex;
+      align-items: center;
+      margin-bottom: 0;
+      background: var(--card);
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      border: 1px solid var(--border);
+      border-bottom: none;
+      padding: 20px 28px;
+      gap: 0;
+    }
+    .step-item {
+      display: flex;
+      align-items: center;
+      flex: 1;
+      position: relative;
+    }
+    .step-item:not(:last-child)::after {
+      content: '';
+      position: absolute;
+      left: 36px;
+      right: 0;
+      top: 50%;
+      height: 2px;
+      background: var(--border);
+      z-index: 0;
+      transition: background 0.3s;
+    }
+    .step-item.done:not(:last-child)::after,
+    .step-item.active:not(:last-child)::after {
+      background: var(--grad-accent);
+    }
+
+    .step-circle {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Exo', sans-serif;
+      font-weight: 800;
+      font-size: 14px;
+      border: 2px solid var(--border);
+      background: var(--bg);
+      color: var(--muted);
+      flex-shrink: 0;
+      z-index: 1;
+      transition: all 0.3s;
+    }
+    .step-item.active .step-circle {
+      background: var(--grad-accent);
+      border-color: transparent;
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(0, 175, 250, 0.4);
+    }
+    .step-item.done .step-circle {
+      background: var(--grad-primary);
+      border-color: transparent;
+      color: #fff;
+    }
+    .step-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      position: absolute;
+      bottom: -18px;
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      display: none;
+    }
+    @media (min-width: 500px) { .step-label { display: block; } }
+    .step-item.active .step-label { color: var(--accent); }
+    .step-item.done  .step-label  { color: var(--primary); }
+
+    /* ── Form card ── */
+    .wizard-card {
+      background: var(--card);
+      border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-md);
+      padding: 36px 36px 32px;
+    }
+    @media (max-width: 520px) { .wizard-card { padding: 24px 20px; } }
+
+    .step-panel { display: none; animation: fadeIn 0.3s ease; }
+    .step-panel.active { display: block; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateX(12px); }
+      to   { opacity: 1; transform: translateX(0); }
+    }
+
+    .step-title {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--primary);
+      margin-bottom: 4px;
+    }
+    .step-subtitle { color: var(--muted); font-size: 14px; margin-bottom: 28px; }
+
+    /* ── Module cards grid ── */
+    .modulo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+    .modulo-card {
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+    .modulo-card:hover {
+      border-color: var(--accent);
+      background: rgba(0, 175, 250, 0.04);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow);
+    }
+    .modulo-card.selected {
+      border-color: var(--accent);
+      background: rgba(0, 175, 250, 0.06);
+      box-shadow: 0 0 0 3px rgba(0, 175, 250, 0.2);
+    }
+    .modulo-card input[type="radio"] { display: none; }
+    .modulo-icon { font-size: 24px; margin-bottom: 8px; }
+    .modulo-name {
+      font-family: 'Exo', sans-serif;
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.3;
+    }
+    .modulo-desc { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .modulo-check {
+      position: absolute;
+      top: 10px; right: 10px;
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: var(--grad-accent);
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 11px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .modulo-card.selected .modulo-check { opacity: 1; }
+
+    /* ── Date + time grid ── */
+    .date-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+    .slot-btn {
+      padding: 12px 8px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: #fff;
+      cursor: pointer;
+      text-align: center;
+      transition: all 0.2s;
+      font-family: 'Nunito', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text);
+    }
+    .slot-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .slot-btn.selected {
+      background: var(--grad-accent);
+      border-color: transparent;
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(0, 175, 250, 0.35);
+    }
+    .slot-btn .day { font-size: 11px; color: inherit; opacity: 0.75; }
+    .slot-btn .date-num { font-size: 18px; font-weight: 800; font-family: 'Exo', sans-serif; }
+
+    .time-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    .time-btn {
+      padding: 10px 20px;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-full);
+      background: #fff;
+      cursor: pointer;
+      font-family: 'Exo', sans-serif;
+      font-weight: 700;
+      font-size: 14px;
+      color: var(--text);
+      transition: all 0.2s;
+    }
+    .time-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .time-btn.selected {
+      background: var(--grad-accent);
+      border-color: transparent;
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(0, 175, 250, 0.35);
+    }
+    .loading-slots { color: var(--muted); font-size: 14px; padding: 12px 0; }
+
+    /* ── Review box ── */
+    .review-box {
+      background: var(--bg);
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 24px;
+      margin-bottom: 24px;
+    }
+    .review-row {
+      display: flex;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .review-row:last-child { border-bottom: none; }
+    .review-label {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--muted);
+      width: 110px;
+      flex-shrink: 0;
+      padding-top: 2px;
+    }
+    .review-value { font-weight: 600; color: var(--text); }
+
+    /* ── Nav buttons ── */
+    .wizard-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 28px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ── Info strip ── */
+    .info-strip {
+      background: var(--grad-primary);
+      padding: 20px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 40px;
+      flex-wrap: wrap;
+    }
+    .info-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: rgba(255,255,255,0.85);
+      font-size: 14px;
+    }
+    .info-item strong { color: #fff; }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Hero -->
+  <div class="hero">
+    <nav class="hero-nav">
+      <div class="logo">Jettax<span>.</span></div>
+      <span style="color:rgba(255,255,255,0.6); font-size:13px;">Suporte Especializado</span>
+    </nav>
+    <div class="hero-content">
+      <div class="hero-badge">📅 Agendamento Online</div>
+      <h1>Agende seu<br><span>atendimento especializado</span></h1>
+      <p>Escolha o módulo onde você tem mais dúvidas e marque uma sessão exclusiva com um de nossos consultores.</p>
+    </div>
+  </div>
+
+  <!-- Wizard -->
+  <div class="wizard-wrap">
+    <div class="steps" id="stepsBar">
+      <div class="step-item active" data-step="1">
+        <div class="step-circle">1</div>
+        <span class="step-label">Dados</span>
+      </div>
+      <div class="step-item" data-step="2">
+        <div class="step-circle">2</div>
+        <span class="step-label">Módulo</span>
+      </div>
+      <div class="step-item" data-step="3">
+        <div class="step-circle">3</div>
+        <span class="step-label">Data & Hora</span>
+      </div>
+      <div class="step-item" data-step="4">
+        <div class="step-circle">4</div>
+        <span class="step-label">Confirmação</span>
+      </div>
+    </div>
+
+    <form action="/cliente/agendar" method="POST" id="wizardForm">
+      <div class="wizard-card">
+
+        <!-- Step 1: Dados pessoais -->
+        <div class="step-panel active" id="step1">
+          <div class="step-title">Seus dados</div>
+          <div class="step-subtitle">Precisamos de algumas informações para identificar você.</div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+            <div class="form-group" style="grid-column:1/-1">
+              <label class="form-label">Nome completo *</label>
+              <input type="text" name="nome" id="f_nome" class="form-control" placeholder="Seu nome" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Empresa *</label>
+              <input type="text" name="empresa" id="f_empresa" class="form-control" placeholder="Nome da empresa" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Telefone</label>
+              <input type="tel" name="telefone" id="f_telefone" class="form-control" placeholder="(00) 00000-0000">
+            </div>
+            <div class="form-group" style="grid-column:1/-1">
+              <label class="form-label">E-mail *</label>
+              <input type="email" name="email" id="f_email" class="form-control" placeholder="seu@email.com" required>
+            </div>
+          </div>
+
+          <div class="wizard-nav">
+            <span></span>
+            <button type="button" class="btn btn-accent btn-lg" onclick="goStep(2)">
+              Próximo <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 2: Módulo -->
+        <div class="step-panel" id="step2">
+          <div class="step-title">Qual módulo deseja ajuda?</div>
+          <div class="step-subtitle">Selecione a área em que você tem mais dúvidas.</div>
+
+          <div class="modulo-grid">
+            {% set icons = ['🧾','💰','📦','🛒','📊','👥','📒','📈','⚙️','🔗'] %}
+            {% for m in modulos %}
+            <label class="modulo-card" onclick="selectModulo(this)">
+              <input type="radio" name="modulo" value="{{ m.nome }}" required>
+              <div class="modulo-check">✓</div>
+              <div class="modulo-icon">{{ icons[loop.index0 % icons|length] }}</div>
+              <div class="modulo-name">{{ m.nome }}</div>
+              <div class="modulo-desc">{{ m.descricao }}</div>
+            </label>
+            {% endfor %}
+          </div>
+
+          <div class="wizard-nav">
+            <button type="button" class="btn btn-ghost" onclick="goStep(1)">
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Voltar
+            </button>
+            <button type="button" class="btn btn-accent btn-lg" onclick="goStep(3)">
+              Próximo <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 3: Data e Horário -->
+        <div class="step-panel" id="step3">
+          <div class="step-title">Escolha a data e horário</div>
+          <div class="step-subtitle">Selecione um dos próximos dias úteis disponíveis.</div>
+
+          <input type="hidden" name="data" id="f_data">
+          <input type="hidden" name="horario" id="f_horario">
+
+          <label class="form-label" style="margin-bottom:12px;">Data</label>
+          <div class="date-grid" id="dateGrid">
+            {% set dias_semana = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'] %}
+            {% for dia in dias %}
+            {% set parts = dia.split('/') %}
+            {% set d_obj = namespace() %}
+            <button type="button" class="slot-btn" data-date="{{ dia }}" onclick="selectDate(this)">
+              <div class="date-num">{{ parts[0] }}</div>
+              <div class="day">{{ parts[1] }}/{{ parts[2] }}</div>
+            </button>
+            {% endfor %}
+          </div>
+
+          <label class="form-label" style="margin-bottom:12px;">Horário</label>
+          <div class="time-grid" id="timeGrid">
+            <span class="loading-slots">← Selecione uma data primeiro</span>
+          </div>
+
+          <div class="wizard-nav">
+            <button type="button" class="btn btn-ghost" onclick="goStep(2)">
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Voltar
+            </button>
+            <button type="button" class="btn btn-accent btn-lg" onclick="goStep(4)">
+              Próximo <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 4: Descrição + Revisão -->
+        <div class="step-panel" id="step4">
+          <div class="step-title">Descreva sua dúvida</div>
+          <div class="step-subtitle">Explique brevemente o que deseja resolver nesta sessão.</div>
+
+          <div class="form-group">
+            <label class="form-label">Descrição *</label>
+            <textarea name="descricao" id="f_descricao" class="form-control" rows="4"
+              placeholder="Ex: Tenho dificuldades em emitir NF-e de devolução, o sistema apresenta erro na validação..." required></textarea>
+          </div>
+
+          <label class="form-label" style="margin-bottom:12px;">Resumo do agendamento</label>
+          <div class="review-box" id="reviewBox">
+            <div class="review-row"><span class="review-label">Nome</span><span class="review-value" id="rv_nome">—</span></div>
+            <div class="review-row"><span class="review-label">Empresa</span><span class="review-value" id="rv_empresa">—</span></div>
+            <div class="review-row"><span class="review-label">E-mail</span><span class="review-value" id="rv_email">—</span></div>
+            <div class="review-row"><span class="review-label">Módulo</span><span class="review-value" id="rv_modulo">—</span></div>
+            <div class="review-row"><span class="review-label">Data</span><span class="review-value" id="rv_data">—</span></div>
+            <div class="review-row"><span class="review-label">Horário</span><span class="review-value" id="rv_horario">—</span></div>
+          </div>
+
+          <div class="wizard-nav">
+            <button type="button" class="btn btn-ghost" onclick="goStep(3)">
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg> Voltar
+            </button>
+            <button type="submit" class="btn btn-accent btn-lg" id="btnSubmit">
+              ✅ Confirmar Agendamento
+            </button>
+          </div>
+        </div>
+
+      </div><!-- /wizard-card -->
+    </form>
+  </div><!-- /wizard-wrap -->
+
+  <!-- Info strip -->
+  <div class="info-strip">
+    <div class="info-item">⏱️ <span>Duração: <strong>1 hora</strong></span></div>
+    <div class="info-item">🎯 <span>Foco: <strong>seu módulo</strong></span></div>
+    <div class="info-item">💬 <span>Formato: <strong>online</strong></span></div>
+    <div class="info-item">📅 <span>Dias úteis, <strong>das 9h às 17h</strong></span></div>
+  </div>
+
+</div><!-- /page -->
+
+<script>
+let currentStep = 1;
+
+const TOTAL = 4;
+
+function goStep(n) {
+  // Validate before advancing
+  if (n > currentStep && !validateStep(currentStep)) return;
+
+  document.querySelector(`#step${currentStep}`).classList.remove('active');
+  const bar = document.querySelectorAll('.step-item');
+  bar[currentStep - 1].classList.remove('active');
+  bar[currentStep - 1].classList.add('done');
+
+  currentStep = n;
+
+  document.querySelector(`#step${currentStep}`).classList.add('active');
+  bar.forEach((el, i) => {
+    if (i < currentStep - 1) { el.classList.add('done'); el.classList.remove('active'); }
+    else if (i === currentStep - 1) { el.classList.add('active'); el.classList.remove('done'); }
+    else { el.classList.remove('active', 'done'); }
+  });
+
+  if (n === 4) updateReview();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function validateStep(n) {
+  if (n === 1) {
+    const nome  = document.getElementById('f_nome').value.trim();
+    const email = document.getElementById('f_email').value.trim();
+    const emp   = document.getElementById('f_empresa').value.trim();
+    if (!nome || !email || !emp) {
+      alert('Preencha todos os campos obrigatórios (*).');
+      return false;
+    }
+    if (!email.includes('@')) { alert('E-mail inválido.'); return false; }
+  }
+  if (n === 2) {
+    const mod = document.querySelector('input[name="modulo"]:checked');
+    if (!mod) { alert('Selecione um módulo.'); return false; }
+  }
+  if (n === 3) {
+    if (!document.getElementById('f_data').value) { alert('Selecione uma data.'); return false; }
+    if (!document.getElementById('f_horario').value) { alert('Selecione um horário.'); return false; }
+  }
+  return true;
+}
+
+function selectModulo(label) {
+  document.querySelectorAll('.modulo-card').forEach(c => c.classList.remove('selected'));
+  label.classList.add('selected');
+  label.querySelector('input').checked = true;
+}
+
+function selectDate(btn) {
+  document.querySelectorAll('.slot-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  const data = btn.dataset.date;
+  document.getElementById('f_data').value = data;
+  document.getElementById('f_horario').value = '';
+  loadHorarios(data);
+}
+
+function selectTime(btn, h) {
+  document.querySelectorAll('.time-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  document.getElementById('f_horario').value = h;
+}
+
+function loadHorarios(data) {
+  const grid = document.getElementById('timeGrid');
+  grid.innerHTML = '<span class="loading-slots">Carregando horários...</span>';
+  fetch(`/api/horarios?data=${encodeURIComponent(data)}`)
+    .then(r => r.json())
+    .then(horarios => {
+      if (!horarios.length) {
+        grid.innerHTML = '<span class="loading-slots" style="color:#EF4444">Sem horários disponíveis neste dia.</span>';
+        return;
+      }
+      grid.innerHTML = horarios.map(h =>
+        `<button type="button" class="time-btn" onclick="selectTime(this,'${h}')">${h}</button>`
+      ).join('');
+    });
+}
+
+function updateReview() {
+  document.getElementById('rv_nome').textContent    = document.getElementById('f_nome').value;
+  document.getElementById('rv_empresa').textContent = document.getElementById('f_empresa').value;
+  document.getElementById('rv_email').textContent   = document.getElementById('f_email').value;
+  const mod = document.querySelector('input[name="modulo"]:checked');
+  document.getElementById('rv_modulo').textContent  = mod ? mod.value : '—';
+  document.getElementById('rv_data').textContent    = document.getElementById('f_data').value || '—';
+  document.getElementById('rv_horario').textContent = document.getElementById('f_horario').value || '—';
+}
+
+document.getElementById('wizardForm').addEventListener('submit', function(e) {
+  if (!document.getElementById('f_descricao').value.trim()) {
+    e.preventDefault();
+    alert('Descreva sua dúvida antes de confirmar.');
+  }
+});
+</script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const meta = document.querySelector("meta[name=csrf-token]");
+  if (!meta) return;
+  const token = meta.content;
+  // Injeta campo oculto em todos os formulários
+  document.querySelectorAll("form").forEach(function (f) {
+    if (!f.querySelector("input[name=csrf_token]")) {
+      const inp = document.createElement("input");
+      inp.type = "hidden"; inp.name = "csrf_token"; inp.value = token;
+      f.appendChild(inp);
+    }
+  });
+  // Injeta no body de requisições fetch POST
+  const _fetch = window.fetch;
+  window.fetch = function (url, opts) {
+    opts = opts || {};
+    if (opts.method && opts.method.toUpperCase() === "POST" && opts.body instanceof FormData) {
+      opts.body.append("csrf_token", token);
+    }
+    return _fetch(url, opts);
+  };
+});
+</script>
+</body>
+</html>
