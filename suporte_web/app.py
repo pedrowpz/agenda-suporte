@@ -106,25 +106,28 @@ def confirmacao(codigo):
     return render_template('confirmacao.html', ag=ag)
 
 
-# ── Funcionário ────────────────────────────────────────────────────────────────
+# ── Login unificado (consultor + admin) ───────────────────────────────────────
 
-@app.route('/funcionario')
-def funcionario():
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    # Redireciona quem já está logado
+    if 'admin_id' in session:
+        return redirect(url_for('admin_dashboard'))
     if 'func_id' in session:
         return redirect(url_for('func_dashboard'))
-    return render_template('funcionario.html', page='login',
-                           flash_msg=session.pop('flash', None))
 
+    if request.method == 'GET':
+        return render_template('login.html',
+                               flash_msg=session.pop('flash', None),
+                               email_anterior=session.pop('email_anterior', None))
 
-@app.route('/funcionario/login', methods=['POST'])
-def func_login():
     ip    = get_ip()
     email = request.form.get('email', '').strip().lower()
     senha = request.form.get('senha', '')
 
     if db.ip_bloqueado(ip):
-        session['flash'] = (f'Muitas tentativas. Aguarde {db.JANELA_MINUTOS} minutos.')
-        return redirect(url_for('funcionario'))
+        session['flash'] = f'Muitas tentativas. Aguarde {db.JANELA_MINUTOS} minutos.'
+        return redirect(url_for('login'))
 
     f = db.get_funcionario_by_email(email)
     if f and db.verificar_senha(senha, f['senha']):
@@ -133,22 +136,51 @@ def func_login():
             db.migrar_senha_para_bcrypt(f['id'], db.hash_senha(senha))
         db.registrar_tentativa(email, ip, sucesso=True)
         session.permanent = True
-        session['func_id']    = f['id']
-        session['func_nome']  = f['nome']
-        session['func_cargo'] = f['cargo']
-        return redirect(url_for('func_dashboard'))
+
+        if f['cargo'] == 'Administrador':
+            session['admin_id']   = f['id']
+            session['admin_nome'] = f['nome']
+            return redirect(url_for('admin_dashboard'))
+        else:
+            session['func_id']    = f['id']
+            session['func_nome']  = f['nome']
+            session['func_cargo'] = f['cargo']
+            return redirect(url_for('func_dashboard'))
 
     db.registrar_tentativa(email, ip, sucesso=False)
     restantes = db.tentativas_restantes(ip)
-    session['flash'] = (f'E-mail ou senha incorretos. '
-                        f'Tentativas restantes: {restantes}.')
-    return redirect(url_for('funcionario'))
+    session['flash']          = f'E-mail ou senha incorretos. Tentativas restantes: {restantes}.'
+    session['email_anterior'] = email
+    return redirect(url_for('login'))
 
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
+
+# Rotas legadas — mantém compatibilidade com links antigos
+@app.route('/funcionario')
+def funcionario():
+    if 'func_id' in session:
+        return redirect(url_for('func_dashboard'))
+    return redirect(url_for('login'))
+
+
+@app.route('/admin')
+def admin():
+    if 'admin_id' in session:
+        return redirect(url_for('admin_dashboard'))
+    return redirect(url_for('login'))
+
+
+# ── Funcionário ────────────────────────────────────────────────────────────────
 
 @app.route('/funcionario/dashboard')
 def func_dashboard():
     if 'func_id' not in session:
-        return redirect(url_for('funcionario'))
+        return redirect(url_for('login'))
     status_f     = request.args.get('status', '')
     hoje         = date.today().strftime('%d/%m/%Y')
     agendamentos = db.get_todos_agendamentos(status=status_f or None)
@@ -170,51 +202,10 @@ def func_atualizar():
     return jsonify({'ok': True})
 
 
-@app.route('/funcionario/logout')
-def func_logout():
-    session.clear()
-    return redirect(url_for('funcionario'))
-
-
 # ── Admin ──────────────────────────────────────────────────────────────────────
 
 def admin_required():
     return 'admin_id' in session
-
-
-@app.route('/admin')
-def admin():
-    if admin_required():
-        return redirect(url_for('admin_dashboard'))
-    return render_template('admin.html', page='login',
-                           flash_msg=session.pop('flash', None))
-
-
-@app.route('/admin/login', methods=['POST'])
-def admin_login():
-    ip    = get_ip()
-    email = request.form.get('email', '').strip().lower()
-    senha = request.form.get('senha', '')
-
-    if db.ip_bloqueado(ip):
-        session['flash'] = (f'Muitas tentativas. Aguarde {db.JANELA_MINUTOS} minutos.')
-        return redirect(url_for('admin'))
-
-    f = db.get_funcionario_by_email(email)
-    if f and f['cargo'] == 'Administrador' and db.verificar_senha(senha, f['senha']):
-        if not f['senha'].startswith('$2'):
-            db.migrar_senha_para_bcrypt(f['id'], db.hash_senha(senha))
-        db.registrar_tentativa(email, ip, sucesso=True)
-        session.permanent = True
-        session['admin_id']   = f['id']
-        session['admin_nome'] = f['nome']
-        return redirect(url_for('admin_dashboard'))
-
-    db.registrar_tentativa(email, ip, sucesso=False)
-    restantes = db.tentativas_restantes(ip)
-    session['flash'] = (f'Credenciais inválidas ou sem permissão. '
-                        f'Tentativas restantes: {restantes}.')
-    return redirect(url_for('admin'))
 
 
 @app.route('/admin/dashboard')

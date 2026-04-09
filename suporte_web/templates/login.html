@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jettax — Acesso ao Sistema</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <style>
+    body {
+      min-height: 100vh;
+      background: var(--grad-hero);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Círculos decorativos */
+    body::before {
+      content: '';
+      position: fixed;
+      right: -120px; top: -120px;
+      width: 480px; height: 480px;
+      border-radius: 50%;
+      background: rgba(0, 175, 250, 0.07);
+      pointer-events: none;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      left: -80px; bottom: -80px;
+      width: 360px; height: 360px;
+      border-radius: 50%;
+      background: rgba(11, 227, 204, 0.05);
+      pointer-events: none;
+    }
+
+    .login-wrap {
+      display: flex;
+      width: 100%;
+      max-width: 900px;
+      min-height: 520px;
+      border-radius: var(--radius-xl);
+      overflow: hidden;
+      box-shadow: var(--shadow-lg);
+      position: relative;
+      z-index: 1;
+      animation: popIn .4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    @keyframes popIn {
+      from { opacity:0; transform:scale(0.93) translateY(16px); }
+      to   { opacity:1; transform:scale(1)    translateY(0); }
+    }
+
+    /* Painel esquerdo — branding */
+    .login-brand {
+      flex: 1;
+      background: linear-gradient(160deg, #001233 0%, #002670 60%, #003090 100%);
+      padding: 48px 40px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+    }
+    .login-brand::before {
+      content: '';
+      position: absolute;
+      right: -60px; top: 50%;
+      transform: translateY(-50%);
+      width: 280px; height: 280px;
+      border-radius: 50%;
+      background: rgba(0, 175, 250, 0.1);
+    }
+
+    .brand-logo {
+      font-family: 'Exo', sans-serif;
+      font-size: 30px;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: -0.5px;
+    }
+    .brand-logo span { color: var(--accent); }
+
+    .brand-body { position: relative; z-index: 1; }
+    .brand-title {
+      font-family: 'Exo', sans-serif;
+      font-size: 26px;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.2;
+      margin-bottom: 14px;
+    }
+    .brand-title span { color: var(--accent); }
+    .brand-desc { color: rgba(255,255,255,0.6); font-size: 14px; line-height: 1.7; }
+
+    .brand-features { display: flex; flex-direction: column; gap: 12px; }
+    .brand-feat {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: rgba(255,255,255,0.75);
+      font-size: 13px;
+    }
+    .brand-feat-icon {
+      width: 32px; height: 32px;
+      border-radius: 8px;
+      background: rgba(0, 175, 250, 0.15);
+      border: 1px solid rgba(0, 175, 250, 0.25);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 640px) { .login-brand { display: none; } }
+
+    /* Painel direito — formulário */
+    .login-form-wrap {
+      width: 400px;
+      flex-shrink: 0;
+      background: #fff;
+      padding: 48px 40px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    @media (max-width: 640px) {
+      .login-form-wrap { width: 100%; padding: 36px 28px; }
+    }
+
+    .form-title {
+      font-family: 'Exo', sans-serif;
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--primary);
+      margin-bottom: 4px;
+    }
+    .form-sub { color: var(--muted); font-size: 14px; margin-bottom: 32px; }
+
+    .input-icon-wrap { position: relative; }
+    .input-icon-wrap .icon {
+      position: absolute;
+      left: 14px; top: 50%;
+      transform: translateY(-50%);
+      font-size: 16px;
+      pointer-events: none;
+    }
+    .input-icon-wrap .form-control { padding-left: 40px; }
+
+    .btn-login {
+      width: 100%;
+      padding: 14px;
+      background: var(--grad-primary);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius-full);
+      font-family: 'Exo', sans-serif;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.25s;
+      box-shadow: 0 4px 20px rgba(0, 38, 112, 0.3);
+      margin-top: 8px;
+    }
+    .btn-login:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(0, 38, 112, 0.4);
+    }
+    .btn-login:active { transform: translateY(0); }
+
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 20px 0;
+      color: var(--border);
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .divider::before, .divider::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+
+    .role-badges {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+    }
+    .role-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-full);
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+    .role-badge .dot { width: 7px; height: 7px; border-radius: 50%; }
+    .dot-admin { background: var(--accent); }
+    .dot-consul { background: var(--accent-2); }
+
+    .back-link {
+      display: block;
+      text-align: center;
+      margin-top: 20px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .back-link a { color: var(--accent); font-weight: 700; }
+  </style>
+</head>
+<body>
+
+<div class="login-wrap">
+
+  <!-- Branding esquerdo -->
+  <div class="login-brand">
+    <div class="brand-logo">Jettax<span>.</span></div>
+
+    <div class="brand-body">
+      <div class="brand-title">Suporte<br><span>Especializado</span></div>
+      <p class="brand-desc">
+        Portal interno para consultores e administradores gerenciarem os atendimentos agendados pelos clientes.
+      </p>
+    </div>
+
+    <div class="brand-features">
+      <div class="brand-feat">
+        <div class="brand-feat-icon">📋</div>
+        <span>Gerencie agendamentos em tempo real</span>
+      </div>
+      <div class="brand-feat">
+        <div class="brand-feat-icon">📊</div>
+        <span>Dashboard com relatórios e gráficos</span>
+      </div>
+      <div class="brand-feat">
+        <div class="brand-feat-icon">⚙️</div>
+        <span>Configure módulos e consultores</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Formulário -->
+  <div class="login-form-wrap">
+
+    <div class="form-title">Bem-vindo</div>
+    <div class="form-sub">Acesse com seu e-mail e senha Jettax.</div>
+
+    {% if flash_msg %}
+    <div class="alert alert-error" style="margin-bottom:20px;">⚠️ {{ flash_msg }}</div>
+    {% endif %}
+
+    <form action="/login" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <div class="form-group">
+        <label class="form-label">E-mail</label>
+        <div class="input-icon-wrap">
+          <span class="icon">✉️</span>
+          <input type="email" name="email" class="form-control"
+                 placeholder="seu@jettax.com.br" required autofocus
+                 value="{{ email_anterior or '' }}">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Senha</label>
+        <div class="input-icon-wrap">
+          <span class="icon">🔒</span>
+          <input type="password" name="senha" class="form-control"
+                 placeholder="••••••••" required>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-login">Entrar no sistema →</button>
+    </form>
+
+    <div class="divider">acesso por perfil</div>
+
+    <div class="role-badges">
+      <div class="role-badge"><span class="dot dot-admin"></span> Administrador</div>
+      <div class="role-badge"><span class="dot dot-consul"></span> Consultor</div>
+    </div>
+
+    <div class="back-link">
+      Precisa agendar? <a href="/cliente">Acesse a área do cliente →</a>
+    </div>
+  </div>
+
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const meta = document.querySelector("meta[name=csrf-token]");
+  if (!meta) return;
+  const token = meta.content;
+  document.querySelectorAll("form").forEach(function (f) {
+    if (!f.querySelector("input[name=csrf_token]")) {
+      const inp = document.createElement("input");
+      inp.type = "hidden"; inp.name = "csrf_token"; inp.value = token;
+      f.appendChild(inp);
+    }
+  });
+});
+</script>
+</body>
+</html>
