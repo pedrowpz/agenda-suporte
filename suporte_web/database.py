@@ -1,4 +1,5 @@
 import hashlib
+import json
 import uuid
 import os
 from datetime import datetime, date, timedelta
@@ -17,7 +18,7 @@ DB_CONFIG = {
     'password': os.getenv('PG_PASSWORD', 'jettax2024'),
 }
 
-HORARIOS_PADRAO = ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00']
+HORARIOS_PADRAO = ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '17:00']  # fallback se DB vazio
 
 MODULOS_PADRAO = [
     ('Módulo Serviços',         'Configuração e operação do módulo de serviços'),
@@ -106,6 +107,23 @@ def init_db():
                 )
             ''')
 
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS configuracoes (
+                    chave TEXT PRIMARY KEY,
+                    valor TEXT NOT NULL
+                )
+            ''')
+
+            # Seed configurações padrão
+            defaults = {
+                'horarios':          json.dumps(['09:00','10:00','11:00','14:00','15:00','16:00','17:00']),
+                'dias_semana':       json.dumps([0,1,2,3,4]),
+                'dias_antecedencia': '12',
+            }
+            for chave, valor in defaults.items():
+                c.execute('''INSERT INTO configuracoes (chave, valor) VALUES (%s,%s)
+                             ON CONFLICT (chave) DO NOTHING''', (chave, valor))
+
             # Seed módulos
             c.execute('SELECT COUNT(*) FROM modulos')
             if c.fetchone()[0] == 0:
@@ -160,9 +178,45 @@ def toggle_modulo(id: int):
         conn.commit()
 
 
+# ── Configurações ─────────────────────────────────────────────────────────────
+
+def get_config(chave: str):
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute('SELECT valor FROM configuracoes WHERE chave = %s', (chave,))
+            row = c.fetchone()
+    return row[0] if row else None
+
+
+def set_config(chave: str, valor: str):
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute('''INSERT INTO configuracoes (chave, valor) VALUES (%s, %s)
+                         ON CONFLICT (chave) DO UPDATE SET valor = EXCLUDED.valor''',
+                      (chave, valor))
+        conn.commit()
+
+
+def get_horarios_config() -> list:
+    raw = get_config('horarios')
+    return json.loads(raw) if raw else HORARIOS_PADRAO
+
+
+def get_dias_semana_config() -> list:
+    """Retorna lista de inteiros: 0=seg, 1=ter, 2=qua, 3=qui, 4=sex, 5=sáb, 6=dom."""
+    raw = get_config('dias_semana')
+    return json.loads(raw) if raw else [0, 1, 2, 3, 4]
+
+
+def get_dias_antecedencia_config() -> int:
+    raw = get_config('dias_antecedencia')
+    return int(raw) if raw else 12
+
+
 # ── Horários ───────────────────────────────────────────────────────────────────
 
 def get_horarios_disponiveis(data_str: str):
+    horarios = get_horarios_config()
     with get_conn() as conn:
         with conn.cursor() as c:
             c.execute(
@@ -170,7 +224,7 @@ def get_horarios_disponiveis(data_str: str):
                 (data_str,)
             )
             ocupados = {r[0] for r in c.fetchall()}
-    return [h for h in HORARIOS_PADRAO if h not in ocupados]
+    return [h for h in horarios if h not in ocupados]
 
 
 # ── Agendamentos ───────────────────────────────────────────────────────────────

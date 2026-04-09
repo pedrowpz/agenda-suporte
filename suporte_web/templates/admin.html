@@ -151,8 +151,9 @@
       <a href="/admin/dashboard"     class="sb-link {% if page=='dashboard'     %}active{% endif %}"><span class="icon">📊</span> Dashboard</a>
       <a href="/admin/agendamentos"  class="sb-link {% if page=='agendamentos'  %}active{% endif %}"><span class="icon">📋</span> Agendamentos</a>
       <div class="sb-section">Configurações</div>
-      <a href="/admin/funcionarios"  class="sb-link {% if page=='funcionarios'  %}active{% endif %}"><span class="icon">👥</span> Consultores</a>
-      <a href="/admin/modulos"       class="sb-link {% if page=='modulos'       %}active{% endif %}"><span class="icon">🧩</span> Módulos</a>
+      <a href="/admin/funcionarios"    class="sb-link {% if page=='funcionarios'    %}active{% endif %}"><span class="icon">👥</span> Consultores</a>
+      <a href="/admin/modulos"         class="sb-link {% if page=='modulos'         %}active{% endif %}"><span class="icon">🧩</span> Módulos</a>
+      <a href="/admin/disponibilidade" class="sb-link {% if page=='disponibilidade' %}active{% endif %}"><span class="icon">🗓️</span> Disponibilidade</a>
     </nav>
     <div class="sb-bottom">
       <a href="/logout" class="btn btn-ghost btn-full btn-sm" style="color:rgba(255,255,255,0.6);border-color:rgba(255,255,255,0.2);">Sair</a>
@@ -166,7 +167,8 @@
         {% if page == 'dashboard'    %}<div class="topbar-title">Dashboard</div>
         {% elif page == 'agendamentos' %}<div class="topbar-title">Agendamentos</div>
         {% elif page == 'funcionarios' %}<div class="topbar-title">Consultores</div>
-        {% elif page == 'modulos'    %}<div class="topbar-title">Módulos</div>
+        {% elif page == 'modulos'         %}<div class="topbar-title">Módulos</div>
+        {% elif page == 'disponibilidade' %}<div class="topbar-title">Disponibilidade</div>
         {% endif %}
       </div>
     </div>
@@ -475,6 +477,109 @@
         </div>
       </div>
     </div>
+
+    {# ══ DISPONIBILIDADE ════════════════════════════════════════════════════════ #}
+    {% elif page == 'disponibilidade' %}
+
+    <style>
+      .toggle-grid { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:8px; }
+      .toggle-chip input[type=checkbox] { display:none; }
+      .toggle-chip label {
+        display:flex; align-items:center; gap:8px;
+        padding:10px 20px; border-radius:var(--radius-full);
+        border:2px solid var(--border); background:#fff;
+        font-family:'Exo',sans-serif; font-weight:700; font-size:14px;
+        color:var(--muted); cursor:pointer; transition:all .2s; user-select:none;
+      }
+      .toggle-chip input:checked + label {
+        background:var(--grad-accent); border-color:transparent;
+        color:#fff; box-shadow:0 4px 14px rgba(0,175,250,.35);
+      }
+      .toggle-chip label:hover { border-color:var(--accent); color:var(--accent); }
+      .toggle-chip input:checked + label:hover { color:#fff; }
+
+      .config-section {
+        background:#fff; border:1px solid var(--border); border-radius:var(--radius);
+        padding:24px 28px; margin-bottom:20px; box-shadow:var(--shadow);
+      }
+      .config-section-title {
+        font-family:'Exo',sans-serif; font-size:16px; font-weight:800;
+        color:var(--primary); margin-bottom:6px;
+      }
+      .config-section-sub { font-size:13px; color:var(--muted); margin-bottom:18px; }
+
+      .antecedencia-input {
+        width:80px; text-align:center; font-size:20px; font-weight:800;
+        font-family:'Exo',sans-serif; color:var(--primary);
+        border:2px solid var(--border); border-radius:var(--radius-sm);
+        padding:8px; outline:none;
+      }
+      .antecedencia-input:focus { border-color:var(--accent); }
+    </style>
+
+    {% if flash_disp %}
+    <div class="alert alert-success">✅ {{ flash_disp }}</div>
+    {% endif %}
+
+    <form action="/admin/disponibilidade" method="POST">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <!-- Dias da semana -->
+      <div class="config-section">
+        <div class="config-section-title">📆 Dias disponíveis para agendamento</div>
+        <div class="config-section-sub">Selecione quais dias da semana os clientes podem agendar atendimento.</div>
+        <div class="toggle-grid">
+          {% set nomes_dias = ['Segunda-feira','Terça-feira','Quarta-feira','Quinta-feira','Sexta-feira','Sábado','Domingo'] %}
+          {% for i in range(7) %}
+          <div class="toggle-chip">
+            <input type="checkbox" name="dia" value="{{ i }}" id="dia_{{ i }}"
+                   {% if i in dias_ativos %}checked{% endif %}>
+            <label for="dia_{{ i }}">{{ nomes_dias[i] }}</label>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Horários -->
+      <div class="config-section">
+        <div class="config-section-title">🕐 Horários disponíveis</div>
+        <div class="config-section-sub">Selecione os horários que aparecerão para o cliente ao agendar.</div>
+        <div class="toggle-grid">
+          {% for h in todos_horarios %}
+          <div class="toggle-chip">
+            <input type="checkbox" name="horario" value="{{ h }}" id="hr_{{ h|replace(':','') }}"
+                   {% if h in horarios_ativos %}checked{% endif %}>
+            <label for="hr_{{ h|replace(':','') }}">{{ h }}</label>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Antecedência -->
+      <div class="config-section">
+        <div class="config-section-title">📅 Dias de antecedência exibidos</div>
+        <div class="config-section-sub">Quantos dias à frente o cliente pode escolher no momento do agendamento.</div>
+        <div style="display:flex;align-items:center;gap:16px;margin-top:4px;">
+          <button type="button" onclick="adj(-1)" class="btn btn-ghost btn-sm" style="font-size:20px;padding:6px 16px;">−</button>
+          <input type="number" name="antecedencia" id="ant_val" class="antecedencia-input"
+                 value="{{ antecedencia }}" min="1" max="60">
+          <button type="button" onclick="adj(1)"  class="btn btn-ghost btn-sm" style="font-size:20px;padding:6px 16px;">+</button>
+          <span class="text-muted text-sm">dias úteis</span>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px;">
+        <button type="submit" class="btn btn-accent btn-lg">💾 Salvar configurações</button>
+        <a href="/admin/disponibilidade" class="btn btn-ghost btn-lg">Cancelar</a>
+      </div>
+    </form>
+
+    <script>
+    function adj(delta) {
+      const el = document.getElementById('ant_val');
+      el.value = Math.max(1, Math.min(60, parseInt(el.value || 12) + delta));
+    }
+    </script>
 
     {% endif %}
 

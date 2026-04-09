@@ -28,10 +28,12 @@ db.init_db()
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
-def proximos_dias_uteis(n=12):
+def proximos_dias_uteis(n=None):
+    dias_semana = db.get_dias_semana_config()
+    n = n or db.get_dias_antecedencia_config()
     dias, d = [], date.today() + timedelta(days=1)
     while len(dias) < n:
-        if d.weekday() < 5:
+        if d.weekday() in dias_semana:
             dias.append(d.strftime('%d/%m/%Y'))
         d += timedelta(days=1)
     return dias
@@ -298,6 +300,51 @@ def admin_toggle_modulo(id):
         return redirect(url_for('admin'))
     db.toggle_modulo(id)
     return redirect(url_for('admin_modulos'))
+
+
+@app.route('/admin/disponibilidade', methods=['GET', 'POST'])
+def admin_disponibilidade():
+    if not admin_required():
+        return redirect(url_for('admin'))
+
+    if request.method == 'POST':
+        # Horários: checkboxes com name="horario" value="09:00" etc.
+        horarios_sel = request.form.getlist('horario')
+        # Novo horário avulso
+        novo_h = request.form.get('novo_horario', '').strip()
+        if novo_h and novo_h not in horarios_sel:
+            horarios_sel.append(novo_h)
+        horarios_sel = sorted(set(horarios_sel))
+
+        # Dias da semana: checkboxes com name="dia" value="0"…"6"
+        dias_sel = [int(d) for d in request.form.getlist('dia')]
+
+        # Antecedência
+        antecedencia = int(request.form.get('antecedencia', 12))
+
+        import json as _json
+        db.set_config('horarios',          _json.dumps(horarios_sel))
+        db.set_config('dias_semana',       _json.dumps(dias_sel))
+        db.set_config('dias_antecedencia', str(antecedencia))
+
+        session['flash_disp'] = 'Configurações salvas com sucesso!'
+        return redirect(url_for('admin_disponibilidade'))
+
+    import json as _json
+    horarios_ativos   = db.get_horarios_config()
+    dias_ativos       = db.get_dias_semana_config()
+    antecedencia      = db.get_dias_antecedencia_config()
+    flash_disp        = session.pop('flash_disp', None)
+
+    # Todos os slots possíveis (08:00 – 19:00 de hora em hora)
+    todos_horarios = [f'{h:02d}:00' for h in range(8, 20)]
+
+    return render_template('admin.html', page='disponibilidade',
+                           horarios_ativos=horarios_ativos,
+                           todos_horarios=todos_horarios,
+                           dias_ativos=dias_ativos,
+                           antecedencia=antecedencia,
+                           flash_disp=flash_disp)
 
 
 @app.route('/api/stats')
