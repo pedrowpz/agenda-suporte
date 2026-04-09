@@ -404,17 +404,22 @@
         <div class="card-header"><h3>Consultores cadastrados</h3></div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Nome</th><th>Cargo</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Nome</th><th>Cargo</th><th>Status</th><th>Módulos</th><th></th></tr></thead>
             <tbody>
             {% for f in funcionarios %}
             <tr>
               <td>{{ f.nome }}<br><small class="text-muted">{{ f.email }}</small></td>
               <td>{{ f.cargo }}</td>
               <td>{% if f.ativo %}<span class="tag-ativo">Ativo</span>{% else %}<span class="tag-inativo">Inativo</span>{% endif %}</td>
+              <td>
+                <button class="btn btn-ghost btn-sm" onclick="abrirModulos({{ f.id }}, '{{ f.nome|e }}')">
+                  🧩 Atribuir
+                </button>
+              </td>
               <td><a href="/admin/funcionarios/toggle/{{ f.id }}" class="btn-icon" title="Ativar/Inativar">🔄</a></td>
             </tr>
             {% else %}
-            <tr><td colspan="4" style="text-align:center;padding:24px;color:var(--muted)">Nenhum consultor.</td></tr>
+            <tr><td colspan="5" style="text-align:center;padding:24px;color:var(--muted)">Nenhum consultor.</td></tr>
             {% endfor %}
             </tbody>
           </table>
@@ -442,6 +447,93 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal de atribuição de módulos -->
+    <div class="modal-overlay" id="modulosModal">
+      <div class="modal" style="max-width:480px;">
+        <div class="modal-title">🧩 Módulos — <span id="modal_consultor_nome"></span></div>
+        <p style="font-size:13px;color:var(--muted);margin-bottom:16px;">
+          Selecione os módulos que este consultor pode atender. A disponibilidade de horários para cada módulo depende dos consultores atribuídos.
+        </p>
+        <input type="hidden" id="modal_consultor_id">
+        <div id="modal_modulos_grid" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px;">
+          {% for m in modulos %}
+          <label class="modulo-toggle" data-id="{{ m.id }}" style="
+            display:flex;align-items:center;gap:8px;padding:8px 14px;
+            border-radius:var(--radius-full);border:2px solid var(--border);
+            background:#fff;font-size:13px;font-weight:600;color:var(--muted);
+            cursor:pointer;transition:all .2s;user-select:none;">
+            <input type="checkbox" value="{{ m.id }}" style="display:none;">
+            {{ m.nome }}
+          </label>
+          {% endfor %}
+        </div>
+        <div style="display:flex;gap:12px;justify-content:flex-end;">
+          <button class="btn btn-ghost" onclick="fecharModulos()">Cancelar</button>
+          <button class="btn btn-accent" onclick="salvarModulos()">💾 Salvar</button>
+        </div>
+      </div>
+    </div>
+
+    <style>
+      .modulo-toggle.checked {
+        background: var(--grad-accent); border-color: transparent;
+        color: #fff; box-shadow: 0 4px 14px rgba(0,175,250,.3);
+      }
+    </style>
+
+    <script>
+    function abrirModulos(id, nome) {
+      document.getElementById('modal_consultor_id').value = id;
+      document.getElementById('modal_consultor_nome').textContent = nome;
+      // Reset checkboxes
+      document.querySelectorAll('.modulo-toggle').forEach(l => {
+        l.classList.remove('checked');
+        l.querySelector('input').checked = false;
+      });
+      // Carregar módulos do consultor
+      fetch(`/admin/funcionarios/${id}/modulos`)
+        .then(r => r.json())
+        .then(mods => {
+          const ids = mods.map(m => m.id);
+          document.querySelectorAll('.modulo-toggle').forEach(l => {
+            const mid = parseInt(l.querySelector('input').value);
+            if (ids.includes(mid)) {
+              l.classList.add('checked');
+              l.querySelector('input').checked = true;
+            }
+          });
+          document.getElementById('modulosModal').classList.add('open');
+        });
+    }
+
+    function fecharModulos() {
+      document.getElementById('modulosModal').classList.remove('open');
+    }
+
+    function salvarModulos() {
+      const id = document.getElementById('modal_consultor_id').value;
+      const ids = [...document.querySelectorAll('.modulo-toggle input:checked')].map(i => parseInt(i.value));
+      fetch(`/admin/funcionarios/${id}/modulos`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('meta[name=csrf-token]').content},
+        body: JSON.stringify({modulo_ids: ids})
+      }).then(r => r.json()).then(d => {
+        if (d.ok) fecharModulos();
+      });
+    }
+
+    document.querySelectorAll('.modulo-toggle').forEach(l => {
+      l.addEventListener('click', function() {
+        this.classList.toggle('checked');
+        this.querySelector('input').checked = this.classList.contains('checked');
+      });
+    });
+
+    document.getElementById('modulosModal').addEventListener('click', function(e) {
+      if (e.target === this) fecharModulos();
+    });
+    </script>
 
     {# ══ MÓDULOS ═════════════════════════════════════════════════════════════ #}
     {% elif page == 'modulos' %}

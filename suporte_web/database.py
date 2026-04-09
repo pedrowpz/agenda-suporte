@@ -114,6 +114,14 @@ def init_db():
                 )
             ''')
 
+            c.execute('''
+                CREATE TABLE IF NOT EXISTS consultor_modulos (
+                    funcionario_id INTEGER NOT NULL REFERENCES funcionarios(id) ON DELETE CASCADE,
+                    modulo_id      INTEGER NOT NULL REFERENCES modulos(id)      ON DELETE CASCADE,
+                    PRIMARY KEY (funcionario_id, modulo_id)
+                )
+            ''')
+
             # Seed configurações padrão
             defaults = {
                 'horarios':          json.dumps(['09:00','10:00','11:00','14:00','15:00','16:00','17:00']),
@@ -215,33 +223,113 @@ def get_dias_antecedencia_config() -> int:
 
 # ── Horários ───────────────────────────────────────────────────────────────────
 
-def get_horarios_disponiveis(data_str: str):
+def get_horarios_disponiveis(data_str: str, modulo_nome: str = None):
     horarios = get_horarios_config()
     with get_conn() as conn:
         with conn.cursor() as c:
-            c.execute(
-                "SELECT horario FROM agendamentos WHERE data = %s AND status != 'Cancelado'",
-                (data_str,)
-            )
-            ocupados = {r[0] for r in c.fetchall()}
-    return [h for h in horarios if h not in ocupados]
+            if modulo_nome:
+                # Consultores ativos designados para este módulo
+                c.execute('''
+                    SELECT f.id FROM funcionarios f
+                    JOIN consultor_modulos cm ON cm.funcionario_id = f.id
+                    JOIN modulos m ON m.id = cm.modulo_id
+                    WHERE m.nome = %s AND f.ativo = TRUE
+                ''', (modulo_nome,))
+                consultor_ids = [r[0] for r in c.fetchall()]
+
+                if not consultor_ids:
+                    # Sem consultores atribuídos: fallback genérico
+                    c.execute(
+                        "SELECT horario FROM agendamentos WHERE data = %s AND status != 'Cancelado'",
+                        (data_str,)
+                    )
+                    ocupados = {r[0] for r in c.fetchall()}
+                    return [h for h in horarios if h not in ocupados]
+
+                # Horário disponível se pelo menos 1 consultor do módulo estiver livre
+                horarios_disponiveis = []
+                for h in horarios:
+                    c.execute(
+                        '''SELECT COUNT(DISTINCT funcionario_id) FROM agendamentos
+                           WHERE data = %s AND horario = %s AND status != \'Cancelado\'
+                           AND funcionario_id = ANY(%s)''',
+                        (data_str, h, consultor_ids)
+                    )
+                    ocupados = c.fetchone()[0]
+                    if ocupados < len(consultor_ids):
+                        horarios_disponiveis.append(h)
+                return horarios_disponiveis
+            else:
+                c.execute(
+                    "SELECT horario FROM agendamentos WHERE data = %s AND status != 'Cancelado'",
+                    (data_str,)
+                )
+                ocupados = {r[0] for r in c.fetchall()}
+                return [h for h in horarios if h not in ocupados]
 
 
 # ── Agendamentos ───────────────────────────────────────────────────────────────
 
+def get_consultor_disponivel(modulo_nome: str, data_str: str, horario: str):
+    """Retorna o id do consultor disponível (menos ocupado no dia) para o módulo/horário."""
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute('''
+                SELECT f.id FROM funcionarios f
+                JOIN consultor_modulos cm ON cm.funcionario_id = f.id
+                JOIN modulos m ON m.id = cm.modulo_id
+                WHERE m.nome = %s AND f.ativo = TRUE
+            ''', (modulo_nome,))
+            consultor_ids = [r[0] for r in c.fetchall()]
+
+            if not consultor_ids:
+                return None
+
+            # Consultores já ocupados neste slot
+            c.execute(
+                '''SELECT DISTINCT funcionario_id FROM agendamentos
+                   WHERE data = %s AND horario = %s AND status != \'Cancelado\'
+                   AND funcionario_id = ANY(%s)''',
+                (data_str, horario, consultor_ids)
+            )
+            ocupados_ids = {r[0] for r in c.fetchall() if r[0] is not None}
+            livres = [cid for cid in consultor_ids if cid not in ocupados_ids]
+
+            if not livres:
+                return None
+
+            # Balanceamento: consultor com menos agendamentos no dia
+            c.execute(
+                '''SELECT funcionario_id, COUNT(*) FROM agendamentos
+                   WHERE data = %s AND status != \'Cancelado\'
+                   AND funcionario_id = ANY(%s)
+                   GROUP BY funcionario_id''',
+                (data_str, livres)
+            )
+            carga = {r[0]: r[1] for r in c.fetchall()}
+            return min(livres, key=lambda cid: carga.get(cid, 0))
+
+
 def criar_agendamento(dados) -> str:
-    codigo = str(uuid.uuid4())[:8].upper()
-    agora  = datetime.now().strftime('%d/%m/%Y %H:%M')
+    codigo  = str(uuid.uuid4())[:8].upper()
+    agora   = datetime.now().strftime('%d/%m/%Y %H:%M')
+    modulo  = dados.get('modulo', '')
+    data    = dados.get('data', '')
+    horario = dados.get('horario', '')
+
+    # Auto-atribuição de consultor disponível
+    func_id = get_consultor_disponivel(modulo, data, horario)
+
     with get_conn() as conn:
         with conn.cursor() as c:
             c.execute(
                 '''INSERT INTO agendamentos
                    (codigo, cliente_nome, cliente_email, cliente_empresa, cliente_telefone,
-                    modulo, data, horario, descricao, criado_em)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
+                    modulo, data, horario, descricao, criado_em, funcionario_id)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
                 (codigo,
                  dados['nome'], dados['email'], dados['empresa'], dados.get('telefone', ''),
-                 dados['modulo'], dados['data'], dados['horario'], dados['descricao'], agora)
+                 modulo, data, horario, dados['descricao'], agora, func_id)
             )
         conn.commit()
     return codigo
@@ -380,6 +468,33 @@ def toggle_funcionario(id: int):
     with get_conn() as conn:
         with conn.cursor() as c:
             c.execute('UPDATE funcionarios SET ativo = NOT ativo WHERE id = %s', (id,))
+        conn.commit()
+
+
+# ── Consultor ↔ Módulos ────────────────────────────────────────────────────────
+
+def get_modulos_consultor(funcionario_id: int):
+    """Retorna lista de módulos (id, nome) atribuídos a um consultor."""
+    with get_conn() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as c:
+            c.execute('''
+                SELECT m.id, m.nome FROM modulos m
+                JOIN consultor_modulos cm ON cm.modulo_id = m.id
+                WHERE cm.funcionario_id = %s ORDER BY m.nome
+            ''', (funcionario_id,))
+            return c.fetchall()
+
+
+def set_modulos_consultor(funcionario_id: int, modulo_ids: list):
+    """Substitui todos os módulos atribuídos ao consultor."""
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute('DELETE FROM consultor_modulos WHERE funcionario_id = %s', (funcionario_id,))
+            if modulo_ids:
+                c.executemany(
+                    'INSERT INTO consultor_modulos (funcionario_id, modulo_id) VALUES (%s, %s)',
+                    [(funcionario_id, mid) for mid in modulo_ids]
+                )
         conn.commit()
 
 

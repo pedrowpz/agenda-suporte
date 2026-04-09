@@ -29,9 +29,17 @@ db.init_db()
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
 def proximos_dias_uteis(n=None):
-    dias_semana = db.get_dias_semana_config()
-    n = n or db.get_dias_antecedencia_config()
-    dias, d = [], date.today() + timedelta(days=1)
+    dias_semana  = db.get_dias_semana_config()
+    n            = n or db.get_dias_antecedencia_config()
+    # Antecedência mínima de 24h: calcula o primeiro dia onde o horário de abertura
+    # (08:00) já estará pelo menos 24h no futuro em relação ao momento atual.
+    now          = datetime.now()
+    cutoff       = now + timedelta(hours=24)
+    PRIMEIRO_SLOT = 8   # hora do primeiro horário possível
+    start = cutoff.date()
+    if cutoff.hour >= PRIMEIRO_SLOT:
+        start += timedelta(days=1)
+    dias, d = [], start
     while len(dias) < n:
         if d.weekday() in dias_semana:
             dias.append(d.strftime('%d/%m/%Y'))
@@ -84,10 +92,11 @@ def cliente():
 
 @app.route('/api/horarios')
 def api_horarios():
-    data = request.args.get('data', '')
+    data   = request.args.get('data', '')
+    modulo = request.args.get('modulo', '') or None
     if not data:
         return jsonify([])
-    return jsonify(db.get_horarios_disponiveis(data))
+    return jsonify(db.get_horarios_disponiveis(data, modulo))
 
 
 @app.route('/cliente/agendar', methods=['POST'])
@@ -253,8 +262,9 @@ def admin_funcionarios():
     if not admin_required():
         return redirect(url_for('admin'))
     funcionarios = db.get_todos_funcionarios()
+    modulos      = db.get_todos_modulos()
     return render_template('admin.html', page='funcionarios',
-                           funcionarios=funcionarios,
+                           funcionarios=funcionarios, modulos=modulos,
                            flash_msg=session.pop('flash', None))
 
 
@@ -276,6 +286,24 @@ def admin_toggle_funcionario(id):
         return redirect(url_for('admin'))
     db.toggle_funcionario(id)
     return redirect(url_for('admin_funcionarios'))
+
+
+@app.route('/admin/funcionarios/<int:id>/modulos', methods=['GET'])
+def admin_get_modulos_consultor(id):
+    if not admin_required():
+        return jsonify([]), 401
+    modulos = db.get_modulos_consultor(id)
+    return jsonify([{'id': m['id'], 'nome': m['nome']} for m in modulos])
+
+
+@app.route('/admin/funcionarios/<int:id>/modulos', methods=['POST'])
+@csrf.exempt
+def admin_set_modulos_consultor(id):
+    if not admin_required():
+        return jsonify({'ok': False}), 401
+    modulo_ids = [int(x) for x in request.json.get('modulo_ids', [])]
+    db.set_modulos_consultor(id, modulo_ids)
+    return jsonify({'ok': True})
 
 
 @app.route('/admin/modulos')

@@ -601,7 +601,9 @@ function selectTime(btn, h) {
 function loadHorarios(data) {
   const grid = document.getElementById('timeGrid');
   grid.innerHTML = '<span class="loading-slots">Carregando horários...</span>';
-  fetch(`/api/horarios?data=${encodeURIComponent(data)}`)
+  const mod = document.querySelector('input[name="modulo"]:checked');
+  const moduloParam = mod ? `&modulo=${encodeURIComponent(mod.value)}` : '';
+  fetch(`/api/horarios?data=${encodeURIComponent(data)}${moduloParam}`)
     .then(r => r.json())
     .then(horarios => {
       if (!horarios.length) {
