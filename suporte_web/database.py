@@ -192,6 +192,13 @@ def toggle_modulo(id: int):
         conn.commit()
 
 
+def editar_modulo(id: int, nome: str, descricao: str):
+    with get_conn() as conn:
+        with conn.cursor() as c:
+            c.execute('UPDATE modulos SET nome=%s, descricao=%s WHERE id=%s', (nome, descricao, id))
+        conn.commit()
+
+
 # ── Configurações ─────────────────────────────────────────────────────────────
 
 def get_config(chave: str):

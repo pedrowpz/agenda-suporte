@@ -344,6 +344,14 @@ def admin_toggle_modulo(id):
     return redirect(url_for('admin_modulos'))
 
 
+@app.route('/admin/modulos/<int:id>/editar', methods=['POST'])
+def admin_editar_modulo(id):
+    if not admin_required():
+        return redirect(url_for('admin'))
+    db.editar_modulo(id, request.form['nome'], request.form.get('descricao', ''))
+    return redirect(url_for('admin_modulos'))
+
+
 @app.route('/admin/disponibilidade', methods=['GET', 'POST'])
 def admin_disponibilidade():
     if not admin_required():

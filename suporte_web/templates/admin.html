@@ -636,13 +636,53 @@
               <td><strong>{{ m.nome }}</strong></td>
               <td style="font-size:13px;color:var(--muted)">{{ m.descricao or '—' }}</td>
               <td>{% if m.ativo %}<span class="tag-ativo">Ativo</span>{% else %}<span class="tag-inativo">Inativo</span>{% endif %}</td>
-              <td><a href="/admin/modulos/toggle/{{ m.id }}" class="btn-icon" title="Ativar/Inativar">🔄</a></td>
+              <td style="white-space:nowrap;">
+                <button class="btn-icon" title="Editar" onclick="abrirEdicaoModulo({{ m.id }}, '{{ m.nome|e }}', '{{ (m.descricao or '')|e }}')">✏️</button>
+                <a href="/admin/modulos/toggle/{{ m.id }}" class="btn-icon" title="Ativar/Inativar">🔄</a>
+              </td>
             </tr>
             {% endfor %}
             </tbody>
           </table>
         </div>
       </div>
+
+      <!-- Modal de edição de módulo -->
+      <div class="modal-overlay" id="editModuloModal">
+        <div class="modal" style="max-width:440px;">
+          <div class="modal-title">✏️ Editar módulo</div>
+          <form id="editModuloForm" method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <div class="form-group">
+              <label class="form-label">Nome</label>
+              <input type="text" name="nome" id="em_nome" class="form-control" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Descrição</label>
+              <textarea name="descricao" id="em_descricao" class="form-control" rows="2"></textarea>
+            </div>
+            <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:8px;">
+              <button type="button" class="btn btn-ghost" onclick="fecharEdicaoModulo()">Cancelar</button>
+              <button type="submit" class="btn btn-accent">💾 Salvar</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <script>
+      function abrirEdicaoModulo(id, nome, descricao) {
+        document.getElementById('editModuloForm').action = `/admin/modulos/${id}/editar`;
+        document.getElementById('em_nome').value = nome;
+        document.getElementById('em_descricao').value = descricao;
+        document.getElementById('editModuloModal').classList.add('open');
+      }
+      function fecharEdicaoModulo() {
+        document.getElementById('editModuloModal').classList.remove('open');
+      }
+      document.getElementById('editModuloModal').addEventListener('click', function(e) {
+        if (e.target === this) fecharEdicaoModulo();
+      });
+      </script>
 
       <div class="card">
         <div class="card-header"><h3>Adicionar módulo</h3></div>
