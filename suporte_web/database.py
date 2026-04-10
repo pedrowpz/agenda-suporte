@@ -454,8 +454,40 @@ def tentativas_restantes(ip: str) -> int:
 def get_todos_funcionarios():
     with get_conn() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as c:
-            c.execute('SELECT id, nome, email, cargo, ativo FROM funcionarios ORDER BY nome')
+            c.execute('''
+                SELECT f.id, f.nome, f.email, f.cargo, f.ativo,
+                       COALESCE(
+                           json_agg(json_build_object('id', m.id, 'nome', m.nome) ORDER BY m.nome)
+                           FILTER (WHERE m.id IS NOT NULL), '[]'::json
+                       ) AS modulos
+                FROM funcionarios f
+                LEFT JOIN consultor_modulos cm ON cm.funcionario_id = f.id
+                LEFT JOIN modulos m ON m.id = cm.modulo_id
+                GROUP BY f.id, f.nome, f.email, f.cargo, f.ativo
+                ORDER BY f.nome
+            ''')
             return c.fetchall()
+
+
+def editar_funcionario(id: int, nome: str, email: str, cargo: str, senha: str = None) -> bool:
+    with get_conn() as conn:
+        try:
+            with conn.cursor() as c:
+                if senha:
+                    c.execute(
+                        'UPDATE funcionarios SET nome=%s, email=%s, cargo=%s, senha=%s WHERE id=%s',
+                        (nome, email, cargo, hash_senha(senha), id)
+                    )
+                else:
+                    c.execute(
+                        'UPDATE funcionarios SET nome=%s, email=%s, cargo=%s WHERE id=%s',
+                        (nome, email, cargo, id)
+                    )
+            conn.commit()
+            return True
+        except psycopg2.errors.UniqueViolation:
+            conn.rollback()
+            return False
 
 
 def criar_funcionario(nome: str, email: str, senha: str, cargo: str) -> bool:

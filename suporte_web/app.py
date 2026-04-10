@@ -288,6 +288,20 @@ def admin_toggle_funcionario(id):
     return redirect(url_for('admin_funcionarios'))
 
 
+@app.route('/admin/funcionarios/<int:id>/editar', methods=['POST'])
+def admin_editar_funcionario(id):
+    if not admin_required():
+        return redirect(url_for('admin'))
+    nome  = request.form['nome']
+    email = request.form['email']
+    cargo = request.form['cargo']
+    senha = request.form.get('senha') or None
+    ok = db.editar_funcionario(id, nome, email, cargo, senha)
+    if not ok:
+        session['flash'] = 'E-mail já cadastrado por outro consultor.'
+    return redirect(url_for('admin_funcionarios'))
+
+
 @app.route('/admin/funcionarios/<int:id>/modulos', methods=['GET'])
 def admin_get_modulos_consultor(id):
     if not admin_required():

@@ -413,7 +413,7 @@
         <div class="card-header"><h3>Consultores cadastrados</h3></div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Nome</th><th>Cargo</th><th>Status</th><th>Módulos</th><th></th></tr></thead>
+            <thead><tr><th>Nome</th><th>Cargo</th><th>Status</th><th>Módulos vinculados</th><th></th></tr></thead>
             <tbody>
             {% for f in funcionarios %}
             <tr>
@@ -421,11 +421,23 @@
               <td>{{ f.cargo }}</td>
               <td>{% if f.ativo %}<span class="tag-ativo">Ativo</span>{% else %}<span class="tag-inativo">Inativo</span>{% endif %}</td>
               <td>
+                <div style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-bottom:6px;" id="modulos_row_{{ f.id }}">
+                  {% if f.modulos %}
+                    {% for m in f.modulos %}
+                    <span style="font-size:11px;padding:2px 8px;border-radius:20px;background:var(--grad-accent);color:#fff;font-weight:600;">{{ m.nome }}</span>
+                    {% endfor %}
+                  {% else %}
+                    <span style="font-size:12px;color:var(--muted);">Nenhum módulo</span>
+                  {% endif %}
+                </div>
                 <button class="btn btn-ghost btn-sm" onclick="abrirModulos({{ f.id }}, '{{ f.nome|e }}')">
-                  🧩 Atribuir
+                  🧩 Editar módulos
                 </button>
               </td>
-              <td><a href="/admin/funcionarios/toggle/{{ f.id }}" class="btn-icon" title="Ativar/Inativar">🔄</a></td>
+              <td style="white-space:nowrap;">
+                <button class="btn-icon" title="Editar" onclick="abrirEdicao({{ f.id }}, '{{ f.nome|e }}', '{{ f.email|e }}', '{{ f.cargo|e }}')">✏️</button>
+                <a href="/admin/funcionarios/toggle/{{ f.id }}" class="btn-icon" title="Ativar/Inativar">🔄</a>
+              </td>
             </tr>
             {% else %}
             <tr><td colspan="5" style="text-align:center;padding:24px;color:var(--muted)">Nenhum consultor.</td></tr>
@@ -454,6 +466,40 @@
             <button type="submit" class="btn btn-accent btn-full">Cadastrar</button>
           </form>
         </div>
+      </div>
+    </div>
+
+    <!-- Modal de edição de consultor -->
+    <div class="modal-overlay" id="editFuncModal">
+      <div class="modal" style="max-width:440px;">
+        <div class="modal-title">✏️ Editar consultor</div>
+        <form id="editFuncForm" method="POST">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="form-group">
+            <label class="form-label">Nome</label>
+            <input type="text" name="nome" id="ef_nome" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">E-mail</label>
+            <input type="email" name="email" id="ef_email" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Cargo</label>
+            <select name="cargo" id="ef_cargo" class="form-control">
+              <option>Consultor</option>
+              <option>Especialista</option>
+              <option>Administrador</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Nova senha <small style="color:var(--muted);font-weight:400;">(deixe em branco para não alterar)</small></label>
+            <input type="password" name="senha" id="ef_senha" class="form-control" placeholder="••••••••">
+          </div>
+          <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:8px;">
+            <button type="button" class="btn btn-ghost" onclick="fecharEdicao()">Cancelar</button>
+            <button type="submit" class="btn btn-accent">💾 Salvar</button>
+          </div>
+        </form>
       </div>
     </div>
 
@@ -492,6 +538,21 @@
     </style>
 
     <script>
+    function abrirEdicao(id, nome, email, cargo) {
+      document.getElementById('editFuncForm').action = `/admin/funcionarios/${id}/editar`;
+      document.getElementById('ef_nome').value  = nome;
+      document.getElementById('ef_email').value = email;
+      document.getElementById('ef_cargo').value = cargo;
+      document.getElementById('ef_senha').value = '';
+      document.getElementById('editFuncModal').classList.add('open');
+    }
+    function fecharEdicao() {
+      document.getElementById('editFuncModal').classList.remove('open');
+    }
+    document.getElementById('editFuncModal').addEventListener('click', function(e) {
+      if (e.target === this) fecharEdicao();
+    });
+
     function abrirModulos(id, nome) {
       document.getElementById('modal_consultor_id').value = id;
       document.getElementById('modal_consultor_nome').textContent = nome;
@@ -522,18 +583,34 @@
 
     function salvarModulos() {
       const id = document.getElementById('modal_consultor_id').value;
-      const ids = [...document.querySelectorAll('.modulo-toggle input:checked')].map(i => parseInt(i.value));
+      const checked = [...document.querySelectorAll('.modulo-toggle input:checked')];
+      const ids = checked.map(i => parseInt(i.value));
+      const nomes = checked.map(i => i.closest('.modulo-toggle').textContent.trim());
       fetch(`/admin/funcionarios/${id}/modulos`, {
         method: 'POST',
         headers: {'Content-Type': 'application/json', 'X-CSRFToken': document.querySelector('meta[name=csrf-token]').content},
         body: JSON.stringify({modulo_ids: ids})
       }).then(r => r.json()).then(d => {
-        if (d.ok) fecharModulos();
+        if (d.ok) {
+          // Atualiza badges na tabela sem recarregar a página
+          const row = document.getElementById(`modulos_row_${id}`);
+          if (row) {
+            if (nomes.length === 0) {
+              row.innerHTML = '<span style="font-size:12px;color:var(--muted);">Nenhum módulo</span>';
+            } else {
+              row.innerHTML = nomes.map(n =>
+                `<span style="font-size:11px;padding:2px 8px;border-radius:20px;background:var(--grad-accent);color:#fff;font-weight:600;">${n}</span>`
+              ).join('');
+            }
+          }
+          fecharModulos();
+        }
       });
     }
 
     document.querySelectorAll('.modulo-toggle').forEach(l => {
-      l.addEventListener('click', function() {
+      l.addEventListener('click', function(e) {
+        e.preventDefault();
         this.classList.toggle('checked');
         this.querySelector('input').checked = this.classList.contains('checked');
       });
