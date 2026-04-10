@@ -276,10 +276,12 @@
 
 {% else %}
 <!-- ══ DASHBOARD ══════════════════════════════════════════════════════════════ -->
-{% set total     = agendamentos | length %}
-{% set pendentes = agendamentos | selectattr('status','eq','Pendente')   | list | length %}
-{% set confirm   = agendamentos | selectattr('status','eq','Confirmado') | list | length %}
-{% set hoje_ags  = agendamentos | selectattr('data','eq',hoje)           | list | length %}
+{% set total      = agendamentos | length %}
+{% set pendentes  = agendamentos | selectattr('status','eq','Pendente')   | list | length %}
+{% set confirm    = agendamentos | selectattr('status','eq','Confirmado') | list | length %}
+{% set concluidos = agendamentos | selectattr('status','eq','Concluído')  | list | length %}
+{% set cancelados = agendamentos | selectattr('status','eq','Cancelado')  | list | length %}
+{% set hoje_ags   = agendamentos | selectattr('data','eq',hoje)           | list | length %}
 
 <div class="mobile-bar">
   <div style="font-family:'Exo',sans-serif;font-weight:800;color:#fff;font-size:18px;">Jettax<span style="color:var(--accent)">.</span></div>
@@ -318,9 +320,11 @@
       </a>
       <a href="/funcionario/dashboard?status=Concluído" class="filter-btn {% if status_filter=='Concluído' %}active{% endif %}">
         <span class="dot dot-concluido"></span> Concluído
+        <span class="badge-count">{{ concluidos }}</span>
       </a>
       <a href="/funcionario/dashboard?status=Cancelado" class="filter-btn {% if status_filter=='Cancelado' %}active{% endif %}">
         <span class="dot dot-cancelado"></span> Cancelado
+        <span class="badge-count">{{ cancelados }}</span>
       </a>
     </div>
 
@@ -343,7 +347,7 @@
 
     <div class="content">
       <!-- Stats strip -->
-      <div class="stats-strip">
+      <div class="stats-strip" style="grid-template-columns:repeat(auto-fill,minmax(160px,1fr));">
         <div class="stat-card">
           <div class="stat-icon navy">📋</div>
           <div class="stat-info"><div class="stat-value">{{ total }}</div><div class="stat-label">Total exibido</div></div>
@@ -357,7 +361,15 @@
           <div class="stat-info"><div class="stat-value">{{ confirm }}</div><div class="stat-label">Confirmados</div></div>
         </div>
         <div class="stat-card">
-          <div class="stat-icon blue">📅</div>
+          <div class="stat-icon blue">🎯</div>
+          <div class="stat-info"><div class="stat-value">{{ concluidos }}</div><div class="stat-label">Concluídos</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:linear-gradient(135deg,#fca5a5,#f87171);">❌</div>
+          <div class="stat-info"><div class="stat-value">{{ cancelados }}</div><div class="stat-label">Cancelados</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:linear-gradient(135deg,#818cf8,#6366f1);">📅</div>
           <div class="stat-info"><div class="stat-value">{{ hoje_ags }}</div><div class="stat-label">Hoje</div></div>
         </div>
       </div>
