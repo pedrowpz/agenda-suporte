@@ -102,6 +102,9 @@ def api_horarios():
 @app.route('/cliente/agendar', methods=['POST'])
 def agendar():
     codigo = db.criar_agendamento(request.form)
+    if codigo is None:
+        flash('Este horário não está mais disponível. Por favor, escolha outro.', 'warning')
+        return redirect(url_for('cliente'))
     ag     = db.get_agendamento_by_codigo(codigo)
     # E-mail ao cliente + notificação interna (assíncronos)
     enviar_async(mailer.email_agendamento_criado, ag)

@@ -128,6 +128,13 @@ def init_db():
                 )
             ''')
 
+            # Constraint: impede double-booking do mesmo consultor no mesmo slot
+            c.execute('''
+                CREATE UNIQUE INDEX IF NOT EXISTS uq_agendamento_slot
+                ON agendamentos (funcionario_id, data, horario)
+                WHERE status != 'Cancelado'
+            ''')
+
             # Seed configurações padrão
             defaults = {
                 'horarios':          json.dumps(['09:00','10:00','11:00','14:00','15:00','16:00','17:00']),
@@ -324,17 +331,49 @@ def get_consultor_disponivel(modulo_nome: str, data_str: str, horario: str):
 
 
 def criar_agendamento(dados) -> str:
+    """Cria agendamento com verificação atômica de disponibilidade (sem double-booking)."""
     codigo  = str(uuid.uuid4())[:8].upper()
     agora   = datetime.now().strftime('%d/%m/%Y %H:%M')
     modulo  = dados.get('modulo', '')
     data    = dados.get('data', '')
     horario = dados.get('horario', '')
 
-    # Auto-atribuição de consultor disponível
-    func_id = get_consultor_disponivel(modulo, data, horario)
-
     with get_conn() as conn:
         with conn.cursor() as c:
+            # Lock: trava os agendamentos deste slot para evitar race condition
+            c.execute(
+                '''SELECT funcionario_id FROM agendamentos
+                   WHERE data = %s AND horario = %s AND status != 'Cancelado'
+                   FOR UPDATE''',
+                (data, horario)
+            )
+            ocupados_ids = {r[0] for r in c.fetchall() if r[0] is not None}
+
+            # Consultores ativos do módulo
+            c.execute('''
+                SELECT f.id FROM funcionarios f
+                JOIN consultor_modulos cm ON cm.funcionario_id = f.id
+                JOIN modulos m ON m.id = cm.modulo_id
+                WHERE m.nome = %s AND f.ativo = TRUE
+            ''', (modulo,))
+            consultor_ids = [r[0] for r in c.fetchall()]
+
+            livres = [cid for cid in consultor_ids if cid not in ocupados_ids]
+            if not livres:
+                conn.rollback()
+                return None
+
+            # Balanceamento: consultor com menos agendamentos no dia
+            c.execute(
+                '''SELECT funcionario_id, COUNT(*) FROM agendamentos
+                   WHERE data = %s AND status != 'Cancelado'
+                   AND funcionario_id = ANY(%s)
+                   GROUP BY funcionario_id''',
+                (data, livres)
+            )
+            carga = {r[0]: r[1] for r in c.fetchall()}
+            func_id = min(livres, key=lambda cid: carga.get(cid, 0))
+
             c.execute(
                 '''INSERT INTO agendamentos
                    (codigo, cliente_nome, cliente_email, cliente_empresa, cliente_cnpj,

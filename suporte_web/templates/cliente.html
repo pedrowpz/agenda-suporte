@@ -350,6 +350,16 @@
 <body>
 <div class="page">
 
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  {% for category, message in messages %}
+  <div style="background:#fff3cd;color:#856404;border:1px solid #ffc107;padding:14px 24px;text-align:center;font-weight:600;">
+    {{ message }}
+  </div>
+  {% endfor %}
+  {% endif %}
+  {% endwith %}
+
   <!-- Hero -->
   <div class="hero">
     <nav class="hero-nav">
